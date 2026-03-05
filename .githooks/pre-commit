@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+
+make check_fix
+git add -u

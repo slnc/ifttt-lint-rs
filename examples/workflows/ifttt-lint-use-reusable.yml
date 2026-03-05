@@ -1,0 +1,19 @@
+name: ifttt-lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ifttt-lint:
+    uses: YOUR_ORG/lint-ifchange/.github/workflows/ifttt-lint-reusable.yml@v1
+    with:
+      binary_source: prebuilt
+      release_repository: YOUR_ORG/lint-ifchange
+      binary_version: v1.2.3
+      base_ref: ${{ github.base_ref }}
+      diff_from: ${{ github.event.before }}
+      diff_to: ${{ github.sha }}
+      lint_args: ""

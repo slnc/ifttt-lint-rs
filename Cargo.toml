@@ -1,0 +1,35 @@
+[package]
+name = "lint-ifchange"
+version = "0.1.0"
+edition = "2021"
+description = "A fast IFTTT linter for enforcing conditional change directives in source code"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+regex = "1"
+rayon = "1"
+ignore = "0.4"
+globset = "0.4"
+thiserror = "2"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
+
+[[bench]]
+name = "lint_bench"
+harness = false
+
+[[bench]]
+name = "check_bench"
+harness = false
+
+[[bench]]
+name = "latency_16kloc_bench"
+harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true

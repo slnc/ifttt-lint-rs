@@ -1,0 +1,140 @@
+name: ifttt-lint (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      binary_source:
+        description: Install strategy: prebuilt (verified release binary) or cargo
+        required: false
+        type: string
+        default: prebuilt
+      release_repository:
+        description: Repository that publishes signed binaries (owner/repo)
+        required: false
+        type: string
+        default: ""
+      binary_version:
+        description: Release tag to install (for example v1.2.3). Empty means latest release.
+        required: false
+        type: string
+        default: ""
+      install_cmd:
+        description: Command used when binary_source=cargo
+        required: false
+        type: string
+        default: cargo install lint-ifchange
+      base_ref:
+        description: Base branch name (e.g. main) used for merge-base diff
+        required: false
+        type: string
+        default: ""
+      diff_from:
+        description: Explicit git diff start revision (overrides base_ref)
+        required: false
+        type: string
+        default: ""
+      diff_to:
+        description: Explicit git diff end revision (overrides base_ref)
+        required: false
+        type: string
+        default: ""
+      lint_args:
+        description: Extra arguments passed to lint-ifchange
+        required: false
+        type: string
+        default: ""
+    secrets:
+      release_repo_token:
+        description: Optional token with read access to release_repository
+        required: false
+
+jobs:
+  lint-ifchange:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        if: ${{ inputs.binary_source == 'cargo' }}
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install lint-ifchange (cargo)
+        if: ${{ inputs.binary_source == 'cargo' }}
+        shell: bash
+        run: ${{ inputs.install_cmd }}
+
+      - name: Install cosign
+        if: ${{ inputs.binary_source == 'prebuilt' }}
+        uses: sigstore/cosign-installer@v3.8.1
+
+      - name: Install lint-ifchange (prebuilt + verified)
+        if: ${{ inputs.binary_source == 'prebuilt' }}
+        shell: bash
+        env:
+          RELEASE_REPOSITORY: ${{ inputs.release_repository }}
+          BINARY_VERSION: ${{ inputs.binary_version }}
+          GH_TOKEN: ${{ secrets.release_repo_token != '' && secrets.release_repo_token || github.token }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$RELEASE_REPOSITORY" ]]; then
+            echo "release_repository is required when binary_source=prebuilt" >&2
+            exit 1
+          fi
+
+          if [[ -z "$BINARY_VERSION" ]]; then
+            BINARY_VERSION="$(gh api "/repos/$RELEASE_REPOSITORY/releases/latest" --jq .tag_name)"
+          fi
+
+          TARGET="x86_64-unknown-linux-gnu"
+          ARCHIVE="lint-ifchange-${BINARY_VERSION}-${TARGET}.tar.gz"
+          EXPECTED_IDENTITY="https://github.com/${RELEASE_REPOSITORY}/.github/workflows/release-binaries.yml@refs/tags/${BINARY_VERSION}"
+
+          gh release download "$BINARY_VERSION" --repo "$RELEASE_REPOSITORY" --pattern "$ARCHIVE"
+          gh release download "$BINARY_VERSION" --repo "$RELEASE_REPOSITORY" --pattern "SHA256SUMS"
+          gh release download "$BINARY_VERSION" --repo "$RELEASE_REPOSITORY" --pattern "SHA256SUMS.sig"
+          gh release download "$BINARY_VERSION" --repo "$RELEASE_REPOSITORY" --pattern "SHA256SUMS.pem"
+
+          cosign verify-blob SHA256SUMS \
+            --signature SHA256SUMS.sig \
+            --certificate SHA256SUMS.pem \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity "$EXPECTED_IDENTITY"
+
+          grep "  $ARCHIVE$" SHA256SUMS > SHA256SUMS.filtered
+          sha256sum -c SHA256SUMS.filtered
+
+          tar -xzf "$ARCHIVE"
+          chmod +x lint-ifchange
+          mkdir -p "$HOME/.local/bin"
+          mv lint-ifchange "$HOME/.local/bin/lint-ifchange"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build diff
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${{ inputs.diff_from }}" && -n "${{ inputs.diff_to }}" ]]; then
+            git diff "${{ inputs.diff_from }}" "${{ inputs.diff_to }}" > changes.diff
+          elif [[ -n "${{ inputs.base_ref }}" ]]; then
+            git fetch origin "${{ inputs.base_ref }}" --depth=1
+            git diff --merge-base "origin/${{ inputs.base_ref }}" HEAD > changes.diff
+          else
+            git diff HEAD~1 HEAD > changes.diff
+          fi
+
+      - name: Run lint-ifchange
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${{ inputs.lint_args }}" ]]; then
+            lint-ifchange ${{ inputs.lint_args }} changes.diff
+          else
+            lint-ifchange changes.diff
+          fi
