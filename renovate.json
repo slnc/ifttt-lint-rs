@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "dependencyDashboard": false,
+  "suppressNotifications": ["configErrorIssue"],
+  "timezone": "UTC",
+  "packageRules": [
+    {
+      "description": "Group all non-security dependency updates weekly with minimum release age",
+      "matchPackageNames": ["*"],
+      "groupName": "all non-security dependencies",
+      "minimumReleaseAge": "4 days",
+      "schedule": ["on monday"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"]
+  }
+}

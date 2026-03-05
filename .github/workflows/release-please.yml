@@ -1,0 +1,35 @@
+name: Release Please
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+
+jobs:
+  release-please:
+    if: ${{ github.event.workflow_run.conclusion != 'cancelled' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger release binaries
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/dispatches \
+            -f event_type=release-created \
+            -f client_payload='{"tag":"${{ steps.release.outputs.tag_name }}"}'

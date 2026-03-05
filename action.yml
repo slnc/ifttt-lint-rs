@@ -1,0 +1,135 @@
+name: "IfChange (slnc)"
+description: Enforce LINT.IfChange/ThenChange directives in pull requests
+branding:
+  icon: check-circle
+  color: green
+
+# LINT.IfChange("inputs")
+inputs:
+  version:
+    description: "Release tag to install (e.g. v1.0.0). Empty means latest."
+    required: false
+    default: ""
+  args:
+    description: "Extra arguments passed to ifchange"
+    required: false
+    default: ""
+  diff:
+    description: "Path to a pre-built diff file. If empty, the action generates one."
+    required: false
+    default: ""
+  token:
+    description: "GitHub token for downloading release assets"
+    required: false
+    default: ${{ github.token }}
+# LINT.ThenChange([
+#   "README.md#action",
+#   "examples/README.md#action",
+#   "examples/workflows/ifchange.yml",
+#   ".github/workflows/test.yml",
+# ])
+
+runs:
+  using: composite
+  steps:
+    - name: Check for existing binary
+      id: check
+      shell: bash
+      run: |
+        if command -v ifchange &>/dev/null; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "ifchange already on PATH: $(which ifchange)"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Detect platform
+      if: steps.check.outputs.found == 'false'
+      id: platform
+      shell: bash
+      run: |
+        case "${{ runner.os }}-${{ runner.arch }}" in
+          Linux-X64)   target="x86_64-unknown-linux-gnu" ; ext="tar.gz" ;;
+          Linux-ARM64)  target="aarch64-unknown-linux-gnu" ; ext="tar.gz" ;;
+          macOS-ARM64)  target="aarch64-apple-darwin" ; ext="tar.gz" ;;
+          macOS-X64)    target="x86_64-apple-darwin" ; ext="tar.gz" ;;
+          Windows-X64)  target="x86_64-pc-windows-msvc" ; ext="zip" ;;
+          *) echo "::error::Unsupported platform: ${{ runner.os }}-${{ runner.arch }}" ; exit 1 ;;
+        esac
+        echo "target=$target" >> "$GITHUB_OUTPUT"
+        echo "ext=$ext" >> "$GITHUB_OUTPUT"
+
+    - name: Resolve version
+      if: steps.check.outputs.found == 'false'
+      id: version
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        INPUT_VERSION: ${{ inputs.version }}
+        ACTION_REPO: ${{ github.action_repository || github.repository }}
+      run: |
+        if [[ -n "$INPUT_VERSION" ]]; then
+          echo "tag=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+        else
+          tag="$(gh api "/repos/$ACTION_REPO/releases/latest" --jq .tag_name)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Download and install binary
+      if: steps.check.outputs.found == 'false'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ACTION_REPO: ${{ github.action_repository || github.repository }}
+      run: |
+        set -euo pipefail
+        version="${{ steps.version.outputs.tag }}"
+        target="${{ steps.platform.outputs.target }}"
+        ext="${{ steps.platform.outputs.ext }}"
+        archive="ifchange-${version}-${target}.${ext}"
+
+        gh release download "$version" \
+          --repo "$ACTION_REPO" \
+          --pattern "$archive" \
+          --dir "${{ runner.temp }}"
+
+        cd "${{ runner.temp }}"
+        if [[ "$ext" == "tar.gz" ]]; then
+          tar -xzf "$archive"
+        else
+          unzip -o "$archive"
+        fi
+        chmod +x ifchange* 2>/dev/null || true
+        mkdir -p "$HOME/.local/bin"
+        mv ifchange* "$HOME/.local/bin/"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Build diff
+      if: ${{ inputs.diff == '' }}
+      id: diff
+      shell: bash
+      run: |
+        set -euo pipefail
+        diff_file="${{ runner.temp }}/changes.diff"
+
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          git fetch origin "${{ github.base_ref }}" --depth=1 2>/dev/null || true
+          git diff --merge-base "origin/${{ github.base_ref }}" HEAD > "$diff_file"
+        else
+          git diff "${{ github.event.before }}" "${{ github.sha }}" > "$diff_file"
+        fi
+        echo "path=$diff_file" >> "$GITHUB_OUTPUT"
+
+    - name: Run ifchange
+      shell: bash
+      env:
+        INPUT_ARGS: ${{ inputs.args }}
+      run: |
+        set -euo pipefail
+        diff_file="${{ inputs.diff || steps.diff.outputs.path }}"
+        args=()
+        if [[ -n "$INPUT_ARGS" ]]; then
+          # Split on shell whitespace without evaluating metacharacters.
+          read -r -a args <<< "$INPUT_ARGS"
+        fi
+        ifchange "${args[@]}" "$diff_file"

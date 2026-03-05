@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+set -eu
+
+msg_file="$1"
+subject_line="$(head -n1 "$msg_file" | tr -d '\r')"
+
+if printf '%s' "$subject_line" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(!)?: .+'; then
+  exit 0
+fi
+
+cat <<'ERR' >&2
+Invalid commit message subject.
+
+Expected Conventional Commits format:
+  <type>: <description>
+or
+  <type>!: <description>
+
+Examples:
+  feat: add check mode
+  fix!: handle nested comments
+
+Allowed types:
+  feat, fix, docs, style, refactor, perf, test, build, ci, chore
+ERR
+
+exit 1

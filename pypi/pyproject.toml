@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ifchange"
+version = "0.1.0" # x-release-please-version
+description = "A fast linter for enforcing conditional change directives in source code"
+license = "MIT"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/slnc/ifchange"
+Repository = "https://github.com/slnc/ifchange"
+
+[project.scripts]
+ifchange = "ifchange.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ifchange"]
