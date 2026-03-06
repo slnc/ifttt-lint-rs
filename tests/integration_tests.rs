@@ -844,9 +844,10 @@ fn test_target_in_diff_with_no_changed_lines_reports_expected_changes() {
             ("b.ts", "one\n"),
         ],
     );
+    let dir_str = dir.path().to_string_lossy().replace('\\', "/");
     let diff = format!(
         "--- a/{0}/a.ts\n+++ b/{0}/a.ts\n@@ -1,3 +1,3 @@\n // LINT.IfChange\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")\n--- a/{0}/b.ts\n+++ b/{0}/b.ts\n@@ -1 +1 @@\n one\n",
-        dir.path().to_string_lossy()
+        dir_str
     );
     let (code, stdout, _stderr) = run_lint(&diff);
     assert_eq!(code, 1);
