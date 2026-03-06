@@ -121,8 +121,7 @@ jobs:
           set -euo pipefail
           cd dist
           cosign sign-blob --yes \
-            --output-signature SHA256SUMS.sig \
-            --output-certificate SHA256SUMS.pem \
+            --bundle SHA256SUMS.bundle \
             SHA256SUMS
 
       - name: Sign each binary archive (keyless)
@@ -133,8 +132,7 @@ jobs:
           for f in lint-ifchange-*.tar.gz lint-ifchange-*.zip; do
             [ -e "$f" ] || continue
             cosign sign-blob --yes \
-              --output-signature "$f.sig" \
-              --output-certificate "$f.pem" \
+              --bundle "$f.bundle" \
               "$f"
           done
 
@@ -158,8 +156,7 @@ jobs:
           files: |
             dist/lint-ifchange-*
             dist/SHA256SUMS
-            dist/SHA256SUMS.sig
-            dist/SHA256SUMS.pem
+            dist/SHA256SUMS.bundle
             dist/sbom.spdx.json
 
   publish-crate:

@@ -4,6 +4,7 @@ branding:
   icon: check-circle
   color: green
 
+# LINT.IfChange("inputs")
 inputs:
   version:
     description: "Release tag to install (e.g. v1.0.0). Empty means latest."
@@ -21,6 +22,12 @@ inputs:
     description: "GitHub token for downloading release assets"
     required: false
     default: ${{ github.token }}
+# LINT.ThenChange([
+#   "README.md#action",
+#   "examples/README.md#action",
+#   "examples/workflows/lint-ifchange.yml",
+#   ".github/workflows/lint-ifchange.yml",
+# ])
 
 runs:
   using: composite
