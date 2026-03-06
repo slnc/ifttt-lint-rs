@@ -40,7 +40,11 @@ Both modes share the directive parsing layer but differ in what they validate.
 The phasing exists because target files may not appear in the diff, so we can't parse everything in one pass.
 
 **Phase 1: Parse changed files** (parallel)
-For each file in the diff: read → extract comments → match directives → pair IfChange↔ThenChange → resolve target paths relative to source.
+For each file in the diff:
+
+```
+file ──▶ read ──▶ extract comments ──▶ match directives ──▶ pair IfChange↔ThenChange ──▶ resolve target paths
+```
 
 **Phase 2: Parse target files** (parallel)
 For each target file not already parsed in Phase 1: read → extract directives → build label→line-range index. A directive cache avoids re-parsing files seen in Phase 1.
@@ -67,7 +71,9 @@ Instead of batching work into phases, you process diff hunks as they arrive from
 
 This maps to the problem's actual dependency structure: validation of a pair depends only on that pair's source and target being parsed, not on every file in the diff being parsed first. The phased model imposes a total order where the true dependency graph is sparse.
 
-Latency: validation results for early files emerge before the last file has been parsed. The critical path follows data dependencies, not phase barriers. Memory: parsed directive data for resolved pairs can be released immediately rather than held until Phase 3 completes. Composability: a streaming architecture composes with piped workflows. Hunks from `git diff` feed directly into the validator without materializing the entire diff, and diagnostics emit incrementally to downstream consumers.
+- **Latency:** validation results for early files emerge before the last file has been parsed. The critical path follows data dependencies, not phase barriers.
+- **Memory:** parsed directive data for resolved pairs can be released immediately rather than held until Phase 3 completes.
+- **Composability:** a streaming architecture composes with piped workflows. Hunks from `git diff` feed directly into the validator without materializing the entire diff, and diagnostics emit incrementally to downstream consumers.
 
 A concurrent file cache with lock-free reads for target files avoids redundant I/O without requiring an explicit "collect all targets, then batch-load" step. Parsing, I/O, and validation overlap across the full execution timeline rather than serializing into three discrete stages.
 

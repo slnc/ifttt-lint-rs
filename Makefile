@@ -37,11 +37,11 @@ check:
 
 check_fix:
 	@cargo fmt --all
-	@cargo clippy --all-targets --all-features -- -D warnings
+	@cargo clippy --quiet --all-targets --all-features -- -D warnings
 
 check_audit:
 	cargo fmt --all -- --check
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --quiet --all-targets --all-features -- -D warnings
 	cargo machete
 	cargo +nightly udeps --all-targets --all-features
 
