@@ -10,3 +10,4 @@ jobs:
     uses: ./.github/workflows/ifttt-lint-reusable.yml
     with:
       binary_source: cargo
+      install_cmd: cargo install --path .
