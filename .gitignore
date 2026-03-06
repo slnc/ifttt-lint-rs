@@ -1,5 +1,4 @@
 /target
-/npm/lint-ifchange
-/npm/lint-ifchange.exe
+/npm/bin/
 /pypi/lint_ifchange/bin/
 /pypi/dist/

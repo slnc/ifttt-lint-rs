@@ -11,8 +11,10 @@ const crypto = require("crypto");
 const REPO = "slnc/lint-ifchange";
 const BINARY = "lint-ifchange";
 const VERSION = `v${require("./package.json").version}`;
-const BIN_DIR = __dirname;
-const BIN_PATH = path.join(BIN_DIR, process.platform === "win32" ? `${BINARY}.exe` : BINARY);
+
+const BIN_DIR = path.join(__dirname, "bin");
+const BIN_NAME = process.platform === "win32" ? `${BINARY}.exe` : BINARY;
+const BIN_PATH = path.join(BIN_DIR, BIN_NAME);
 
 const PLATFORM_MAP = {
   linux: { x64: "x86_64-unknown-linux-gnu", arm64: "aarch64-unknown-linux-gnu" },
@@ -80,26 +82,26 @@ async function install() {
   }
   console.log("Checksum verified.");
 
-  // Extract
+  // Extract to temp dir
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "lint-ifchange-"));
   const archivePath = path.join(tmpDir, archiveName);
   fs.writeFileSync(archivePath, archive);
 
   try {
     if (ext === "zip") {
-      // Use PowerShell on Windows to extract zip
       execSync(`powershell -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}'"`, { stdio: "ignore" });
     } else {
       execSync(`tar -xzf "${archivePath}" -C "${tmpDir}"`, { stdio: "ignore" });
     }
 
     // Find binary
-    const binName = process.platform === "win32" ? `${BINARY}.exe` : BINARY;
-    let extracted = findFile(tmpDir, binName);
+    let extracted = findFile(tmpDir, BIN_NAME);
     if (!extracted) {
-      throw new Error(`Could not find ${binName} in archive`);
+      throw new Error(`Could not find ${BIN_NAME} in archive`);
     }
 
+    // Place native binary directly into bin/
+    fs.mkdirSync(BIN_DIR, { recursive: true });
     fs.copyFileSync(extracted, BIN_PATH);
     fs.chmodSync(BIN_PATH, 0o755);
     console.log(`Installed ${BINARY} to ${BIN_PATH}`);

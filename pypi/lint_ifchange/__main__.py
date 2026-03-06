@@ -1,15 +1,19 @@
 """Entry point for lint-ifchange."""
 
-import subprocess
+import os
 import sys
 
 from .install import download_binary
 
 
 def main():
-    bin_path = download_binary()
-    result = subprocess.run([str(bin_path)] + sys.argv[1:])
-    sys.exit(result.returncode)
+    bin_path = str(download_binary())
+    if sys.platform == "win32":
+        import subprocess
+        result = subprocess.run([bin_path] + sys.argv[1:])
+        sys.exit(result.returncode)
+    else:
+        os.execvp(bin_path, [bin_path] + sys.argv[1:])
 
 
 if __name__ == "__main__":
