@@ -1,6 +1,6 @@
 # lint-ifchange
 
-**Keep related files in sync. Automatically catch forgotten co-changes in pull requests.**
+**Keep related files in sync. Automatically catch forgotten correlated changes in pull requests.**
 
 Ever renamed a field in `schema.sql` but forgot to update the ORM model? Changed a constant in one file while its copy in another went stale? These cross-file dependencies are invisible to compilers and easy to miss in code review. `lint-ifchange` is a file dependency linter that enforces co-changes across files so that related code never drifts out of sync.
 

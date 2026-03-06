@@ -6,7 +6,7 @@ description = "A fast linter for enforcing conditional change directives in sour
 license = "MIT"
 repository = "https://github.com/slnc/lint-ifchange"
 homepage = "https://github.com/slnc/lint-ifchange"
-keywords = ["lint", "ifchange", "thenchange"]
+keywords = ["lint", "code-review", "ci", "diff", "ifchange"]
 categories = ["development-tools", "command-line-utilities"]
 
 [dependencies]

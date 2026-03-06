@@ -90,7 +90,6 @@ check_command() {
     command -v "$1" >/dev/null 2>&1 || error "required command not found: $1"
 }
 
-check_command uname
 check_command tar
 
 OS="$(detect_os)"
