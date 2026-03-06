@@ -136,3 +136,4 @@ chmod +x .git/hooks/pre-commit
 
 [![Test](https://github.com/slnc/lint-ifchange/actions/workflows/test.yml/badge.svg)](https://github.com/slnc/lint-ifchange/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/slnc/lint-ifchange/branch/main/graph/badge.svg)](https://codecov.io/gh/slnc/lint-ifchange)
+[![Sigstore](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev/)
