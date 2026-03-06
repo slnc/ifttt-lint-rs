@@ -25,7 +25,19 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Check for existing binary
+      id: check
+      shell: bash
+      run: |
+        if command -v lint-ifchange &>/dev/null; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "lint-ifchange already on PATH: $(which lint-ifchange)"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Detect platform
+      if: steps.check.outputs.found == 'false'
       id: platform
       shell: bash
       run: |
@@ -41,23 +53,27 @@ runs:
         echo "ext=$ext" >> "$GITHUB_OUTPUT"
 
     - name: Resolve version
+      if: steps.check.outputs.found == 'false'
       id: version
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
         INPUT_VERSION: ${{ inputs.version }}
+        ACTION_REPO: ${{ github.action_repository || github.repository }}
       run: |
         if [[ -n "$INPUT_VERSION" ]]; then
           echo "tag=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
         else
-          tag="$(gh api /repos/${{ github.action_repository || github.repository }}/releases/latest --jq .tag_name)"
+          tag="$(gh api "/repos/$ACTION_REPO/releases/latest" --jq .tag_name)"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Download and install binary
+      if: steps.check.outputs.found == 'false'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
+        ACTION_REPO: ${{ github.action_repository || github.repository }}
       run: |
         set -euo pipefail
         version="${{ steps.version.outputs.tag }}"
@@ -66,7 +82,7 @@ runs:
         archive="lint-ifchange-${version}-${target}.${ext}"
 
         gh release download "$version" \
-          --repo "${{ github.action_repository || github.repository }}" \
+          --repo "$ACTION_REPO" \
           --pattern "$archive" \
           --dir "${{ runner.temp }}"
 

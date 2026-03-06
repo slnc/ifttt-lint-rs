@@ -13,4 +13,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build lint-ifchange
+        run: cargo install --path .
+
       - uses: ./
