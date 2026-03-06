@@ -19,7 +19,7 @@ pub(super) fn resolve_target_path(source_file: &str, target_name: &str) -> Strin
         .parent()
         .unwrap_or_else(|| Path::new(""));
     let joined = source_dir.join(target_name);
-    normalize_path_str(&joined.to_string_lossy())
+    normalize_path_str(&joined.to_string_lossy().replace('\\', "/"))
 }
 
 pub(super) fn normalize_path_str(path: &str) -> String {
