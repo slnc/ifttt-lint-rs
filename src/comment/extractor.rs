@@ -15,8 +15,27 @@ const C_STYLE_EXTS: &[&str] = &[
 
 /// Extensions that support hash-style comments (`#`).
 const HASH_STYLE_EXTS: &[&str] = &[
-    "py", "bzl", "rb", "sh", "toml", "yml", "yaml", "ps1", "psm1", "psd1", "bash", "zsh", "ksh",
-    "r", "pl", "pm", "ex", "exs", "gd", "mojo",
+    "py",
+    "bzl",
+    "rb",
+    "sh",
+    "toml",
+    "yml",
+    "yaml",
+    "ps1",
+    "psm1",
+    "psd1",
+    "bash",
+    "zsh",
+    "ksh",
+    "r",
+    "pl",
+    "pm",
+    "ex",
+    "exs",
+    "gd",
+    "mojo",
+    "gitignore",
 ];
 
 /// Extensions that support `--` line comments (and optionally C-style `/* */` blocks).
@@ -34,6 +53,9 @@ const APOSTROPHE_STYLE_EXTS: &[&str] = &["vb", "vba", "bas", "cls"];
 /// Extensions that support `!` comments.
 const BANG_STYLE_EXTS: &[&str] = &["f", "for", "f90", "f95", "f03", "f08"];
 
+/// Extensions that support HTML-style comments (`<!-- -->`).
+const HTML_STYLE_EXTS: &[&str] = &["html", "htm", "xml", "svg", "md"];
+
 /// Extract all comments from `content`, using the comment style implied by `file_ext`
 /// (without the leading dot).
 ///
@@ -45,7 +67,9 @@ pub fn extract_comments(content: &str, file_ext: &str) -> Vec<Comment> {
         .to_ascii_lowercase();
     let ext = ext.as_str();
 
-    if C_STYLE_EXTS.contains(&ext) {
+    if HTML_STYLE_EXTS.contains(&ext) {
+        extract_html_style(content)
+    } else if C_STYLE_EXTS.contains(&ext) {
         extract_c_style(content)
     } else if HASH_STYLE_EXTS.contains(&ext) {
         extract_hash_style(content)
@@ -68,6 +92,40 @@ pub fn extract_comments(content: &str, file_ext: &str) -> Vec<Comment> {
             comments
         }
     }
+}
+
+/// Extract `<!-- … -->` HTML-style comments.
+fn extract_html_style(content: &str) -> Vec<Comment> {
+    let mut comments = Vec::new();
+    let mut rest = content;
+    let mut line: usize = 1;
+
+    while let Some(open_pos) = rest.find("<!--") {
+        // Count newlines before the opening delimiter.
+        line += rest[..open_pos].matches('\n').count();
+        let comment_line = line;
+
+        let after_open = &rest[open_pos + 4..];
+        if let Some(close_pos) = after_open.find("-->") {
+            let text = &after_open[..close_pos];
+            line += text.matches('\n').count();
+            comments.push(Comment {
+                start_line: comment_line,
+                text: text.to_string(),
+            });
+            rest = &after_open[close_pos + 3..];
+        } else {
+            // Unclosed comment: take rest of content.
+            let text = after_open;
+            comments.push(Comment {
+                start_line: comment_line,
+                text: text.to_string(),
+            });
+            break;
+        }
+    }
+
+    comments
 }
 
 /// Extract `//` line comments and `/* … */` block comments.
@@ -470,6 +528,83 @@ mod tests {
         let comments = extract_comments(content, "f90");
         assert_eq!(comments.len(), 1);
         assert_eq!(comments[0].text, " hello");
+    }
+
+    #[test]
+    fn test_html_single_line_comment() {
+        let content = "<!-- hello -->\n<p>text</p>\n";
+        let comments = extract_comments(content, "html");
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].start_line, 1);
+        assert_eq!(comments[0].text, " hello ");
+    }
+
+    #[test]
+    fn test_html_multiline_comment() {
+        let content = "<!--\n  line1\n  line2\n-->\n";
+        let comments = extract_comments(content, "html");
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].start_line, 1);
+        assert!(comments[0].text.contains("line1"));
+        assert!(comments[0].text.contains("line2"));
+    }
+
+    #[test]
+    fn test_html_multiple_comments() {
+        let content = "<!-- first -->\n<p>gap</p>\n<!-- second -->\n";
+        let comments = extract_comments(content, "html");
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].text, " first ");
+        assert_eq!(comments[1].text, " second ");
+        assert_eq!(comments[1].start_line, 3);
+    }
+
+    #[test]
+    fn test_html_unclosed_comment() {
+        let content = "<!-- unclosed\nstill comment";
+        let comments = extract_comments(content, "html");
+        assert_eq!(comments.len(), 1);
+        assert!(comments[0].text.contains("unclosed"));
+    }
+
+    #[test]
+    fn test_markdown_uses_html_comments() {
+        let content = "<!-- LINT.IfChange -->\nsome text\n<!-- LINT.ThenChange(\"other.md\") -->\n";
+        let comments = extract_comments(content, "md");
+        assert_eq!(comments.len(), 2);
+        assert!(comments[0].text.contains("LINT.IfChange"));
+        assert!(comments[1].text.contains("LINT.ThenChange"));
+    }
+
+    #[test]
+    fn test_xml_uses_html_comments() {
+        let content = "<!-- comment -->\n<root/>\n";
+        let comments = extract_comments(content, "xml");
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].text, " comment ");
+    }
+
+    #[test]
+    fn test_svg_uses_html_comments() {
+        let content = "<!-- note -->\n<svg/>\n";
+        let comments = extract_comments(content, "svg");
+        assert_eq!(comments.len(), 1);
+    }
+
+    #[test]
+    fn test_htm_uses_html_comments() {
+        let content = "<!-- hi -->\n";
+        let comments = extract_comments(content, "htm");
+        assert_eq!(comments.len(), 1);
+    }
+
+    #[test]
+    fn test_gitignore_uses_hash_comments() {
+        let content = "# Build output\ntarget/\n# Dependencies\nnode_modules/\n";
+        let comments = extract_comments(content, "gitignore");
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].text, " Build output");
+        assert_eq!(comments[1].text, " Dependencies");
     }
 
     #[test]

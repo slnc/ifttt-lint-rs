@@ -44,7 +44,7 @@ Exit codes: **0** ok, **1** lint errors, **2** fatal error.
 
 ## Directive Syntax
 
-Directives live in comments. Supported in 50+ file extensions (C-style `//`, `#`, `--`, `%`, `;`, `'`, `!`), polyglot by design.
+Directives live in comments. Supported in 50+ file extensions (C-style `//`, `#`, `<!-- -->`, `--`, `%`, `;`, `'`, `!`), polyglot by design.
 
 ### Basic
 
@@ -52,6 +52,12 @@ Directives live in comments. Supported in 50+ file extensions (C-style `//`, `#`
 # LINT.IfChange
 VALUE = 42
 # LINT.ThenChange("constants.py")
+```
+
+```markdown
+<!-- LINT.IfChange -->
+Current API version: **v2**
+<!-- LINT.ThenChange("constants.js") -->
 ```
 
 ### Labeled regions
