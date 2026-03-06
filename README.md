@@ -1,10 +1,10 @@
 # lint-ifchange
 
-**Keep related files in sync — automatically catch forgotten co-changes in pull requests.**
+**Keep related files in sync. Automatically catch forgotten co-changes in pull requests.**
 
 Ever renamed a field in `schema.sql` but forgot to update the ORM model? Changed a constant in one file while its copy in another went stale? These cross-file dependencies are invisible to compilers and easy to miss in code review. `lint-ifchange` is a file dependency linter that enforces co-changes across files so that related code never drifts out of sync.
 
-Add lightweight comment directives to mark related sections. When a guarded block changes in a PR, the linter verifies that all referenced files were also modified — catching config drift, forgotten updates, and out-of-sync files before they reach production.
+Add lightweight comment directives to mark related sections. When a guarded block changes in a PR, the linter verifies that all referenced files were also modified, catching config drift, forgotten updates, and out-of-sync files before they reach production.
 
 Based on Google's internal LINT.IfChange/ThenChange system. Language-agnostic, works with any file type that supports comments. Inspired by [ebrevdo/ifttt-lint](https://github.com/ebrevdo/ifttt-lint).
 
@@ -44,7 +44,7 @@ Exit codes: **0** ok, **1** lint errors, **2** fatal error.
 
 ## Directive Syntax
 
-Directives live in comments. Supported in 50+ file extensions (C-style `//`, `#`, `--`, `%`, `;`, `'`, `!`) — polyglot by design.
+Directives live in comments. Supported in 50+ file extensions (C-style `//`, `#`, `--`, `%`, `;`, `'`, `!`), polyglot by design.
 
 ### Basic
 

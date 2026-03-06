@@ -3,6 +3,11 @@ name = "lint-ifchange"
 version = "0.1.0"
 edition = "2021"
 description = "A fast IFTTT linter for enforcing conditional change directives in source code"
+license = "MIT"
+repository = "https://github.com/slnc/lint-ifchange"
+homepage = "https://github.com/slnc/lint-ifchange"
+keywords = ["lint", "ifttt", "ifchange", "thenchange"]
+categories = ["development-tools", "command-line-utilities"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
