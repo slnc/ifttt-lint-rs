@@ -54,7 +54,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -69,7 +69,7 @@ jobs:
 
       - name: Install cosign
         if: ${{ inputs.binary_source == 'prebuilt' }}
-        uses: sigstore/cosign-installer@v3.8.1
+        uses: sigstore/cosign-installer@v4
 
       - name: Install lint-ifchange (prebuilt + verified)
         if: ${{ inputs.binary_source == 'prebuilt' }}
