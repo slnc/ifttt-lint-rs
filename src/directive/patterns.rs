@@ -17,16 +17,17 @@ pub(super) struct Patterns {
 pub(super) fn patterns() -> &'static Patterns {
     static INSTANCE: OnceLock<Patterns> = OnceLock::new();
     INSTANCE.get_or_init(|| Patterns {
-        if_change_labeled: Regex::new(r#"LINT\.IfChange\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"#).unwrap(),
-        if_change_bare: Regex::new(r"LINT\.IfChange\b").unwrap(),
-        then_change_single: Regex::new(r#"LINT\.ThenChange\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"#)
+        if_change_labeled: Regex::new(r#"(?i)LINT\.IfChange\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"#)
             .unwrap(),
-        then_change_array: Regex::new(r#"LINT\.ThenChange\s*\(\s*\[([^\]]*?)\]\s*,?\s*\)"#)
+        if_change_bare: Regex::new(r"(?i)LINT\.IfChange\b").unwrap(),
+        then_change_single: Regex::new(r#"(?i)LINT\.ThenChange\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"#)
             .unwrap(),
-        then_change_fallback: Regex::new(r"LINT\.ThenChange\(([^)]*)\)").unwrap(),
-        label: Regex::new(r#"LINT\.Label\(\s*['\"]([^'\"]+)['\"]\s*\)"#).unwrap(),
-        end_label: Regex::new(r"LINT\.EndLabel\b").unwrap(),
-        lint_dot: Regex::new(r"LINT\.").unwrap(),
-        lint_directive_name: Regex::new(r"LINT\.(\w+)").unwrap(),
+        then_change_array: Regex::new(r#"(?i)LINT\.ThenChange\s*\(\s*\[([^\]]*?)\]\s*,?\s*\)"#)
+            .unwrap(),
+        then_change_fallback: Regex::new(r"(?i)LINT\.ThenChange\(([^)]*)\)").unwrap(),
+        label: Regex::new(r#"(?i)LINT\.Label\(\s*['\"]([^'\"]+)['\"]\s*\)"#).unwrap(),
+        end_label: Regex::new(r"(?i)LINT\.EndLabel\b").unwrap(),
+        lint_dot: Regex::new(r"(?i)LINT\.").unwrap(),
+        lint_directive_name: Regex::new(r"(?i)LINT\.(\w+)").unwrap(),
     })
 }

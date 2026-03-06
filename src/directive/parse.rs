@@ -7,6 +7,17 @@ use crate::directive::error::DirectiveParseError;
 use crate::directive::patterns::patterns;
 use crate::model::Directive;
 
+fn contains_ci(haystack: &str, needle: &str) -> bool {
+    haystack
+        .as_bytes()
+        .windows(needle.len())
+        .any(|w| w.eq_ignore_ascii_case(needle.as_bytes()))
+}
+
+fn starts_with_ci(s: &str, prefix: &str) -> bool {
+    s.len() >= prefix.len() && s.as_bytes()[..prefix.len()].eq_ignore_ascii_case(prefix.as_bytes())
+}
+
 /// Parse all LINT directives from a file.
 ///
 /// Returns `Ok(vec![])` if the file doesn't exist or is a directory.
@@ -68,7 +79,7 @@ pub fn parse_directives_from_content(
 
             // Bare IfChange
             if pats.if_change_bare.is_match(line_text) {
-                if line_text.contains("LINT.IfChange(") {
+                if contains_ci(line_text, "LINT.IfChange(") {
                     return Err(DirectiveParseError::MalformedDirective {
                         directive: "LINT.IfChange",
                         path: file_path.to_string(),
@@ -86,9 +97,9 @@ pub fn parse_directives_from_content(
             }
 
             // ThenChange
-            if line_text.contains("LINT.ThenChange") {
+            if contains_ci(line_text, "LINT.ThenChange") {
                 let trimmed = line_text.trim();
-                if trimmed.contains("LINT.ThenChange")
+                if contains_ci(trimmed, "LINT.ThenChange")
                     && trimmed.contains('(')
                     && !trimmed.contains(')')
                 {
@@ -212,7 +223,7 @@ pub fn parse_directives_from_content(
             }
 
             // Label
-            if line_text.contains("LINT.Label") {
+            if contains_ci(line_text, "LINT.Label") {
                 if let Some(caps) = pats.label.captures(line_text) {
                     let name = caps.get(1).unwrap().as_str().to_string();
                     directives.push(Directive::Label {
@@ -241,7 +252,7 @@ pub fn parse_directives_from_content(
             // Unknown LINT directive
             if let Some(caps) = pats.lint_directive_name.captures(line_text) {
                 let name = caps.get(1).unwrap().as_str();
-                if name.starts_with("IfChange") {
+                if starts_with_ci(name, "IfChange") {
                     return Err(DirectiveParseError::MalformedDirective {
                         directive: "LINT.IfChange",
                         path: file_path.to_string(),
@@ -250,7 +261,7 @@ pub fn parse_directives_from_content(
                         found: line_text.trim().to_string(),
                     });
                 }
-                if name.starts_with("ThenChange") {
+                if starts_with_ci(name, "ThenChange") {
                     return Err(DirectiveParseError::MalformedDirective {
                         directive: "LINT.ThenChange",
                         path: file_path.to_string(),
@@ -259,7 +270,7 @@ pub fn parse_directives_from_content(
                         found: line_text.trim().to_string(),
                     });
                 }
-                if name.starts_with("Label") {
+                if starts_with_ci(name, "Label") {
                     return Err(DirectiveParseError::MalformedDirective {
                         directive: "LINT.Label",
                         path: file_path.to_string(),
@@ -417,6 +428,105 @@ mod tests {
     #[test]
     fn unknown_directive_error() {
         let err = parse_directives_from_content("// LINT.Frobulate(\"x\")\n", "x.ts").unwrap_err();
+        assert!(err.to_string().contains("Unknown LINT directive"));
+    }
+
+    #[test]
+    fn case_insensitive_ifchange_bare() {
+        for variant in [
+            "lint.ifchange",
+            "Lint.Ifchange",
+            "LINT.IFCHANGE",
+            "Lint.IfChange",
+        ] {
+            let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
+            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+            assert!(
+                directives
+                    .iter()
+                    .any(|d| matches!(d, Directive::IfChange { label: None, .. })),
+                "failed for variant: {variant}"
+            );
+        }
+    }
+
+    #[test]
+    fn case_insensitive_ifchange_labeled() {
+        for variant in [
+            r#"lint.ifchange("lbl")"#,
+            r#"LINT.IFCHANGE("lbl")"#,
+            r#"Lint.Ifchange("lbl")"#,
+        ] {
+            let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
+            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+            assert!(
+                directives
+                    .iter()
+                    .any(|d| matches!(d, Directive::IfChange { label: Some(l), .. } if l == "lbl")),
+                "failed for variant: {variant}"
+            );
+        }
+    }
+
+    #[test]
+    fn case_insensitive_thenchange() {
+        for variant in [
+            r#"lint.thenchange("b.ts")"#,
+            r#"LINT.THENCHANGE("b.ts")"#,
+            r#"Lint.ThenChange("b.ts")"#,
+        ] {
+            let content = format!("// LINT.IfChange\n// {variant}\n");
+            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+            assert_eq!(
+                then_targets(directives),
+                vec!["b.ts"],
+                "failed for variant: {variant}"
+            );
+        }
+    }
+
+    #[test]
+    fn case_insensitive_thenchange_array() {
+        let content = "// LINT.IfChange\n// lint.thenchange([\"a.ts\", \"b.ts\"])\n";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
+    }
+
+    #[test]
+    fn case_insensitive_thenchange_fallback() {
+        let content = "// LINT.IfChange\n// lint.thenchange(foo.ts)\n";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["foo.ts"]);
+    }
+
+    #[test]
+    fn case_insensitive_label_and_endlabel() {
+        let content = "// lint.label(\"sec\")\n// lint.endlabel\n";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert!(directives
+            .iter()
+            .any(|d| matches!(d, Directive::Label { name, .. } if name == "sec")),);
+        assert!(directives
+            .iter()
+            .any(|d| matches!(d, Directive::EndLabel { .. })),);
+    }
+
+    #[test]
+    fn case_insensitive_thenchange_multiline() {
+        let content = "/*\nlint.thenchange([\n\"a.ts\",\n\"b.ts\",\n])\n*/\n";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
+    }
+
+    #[test]
+    fn case_insensitive_malformed_ifchange_error() {
+        let err = parse_directives_from_content("// lint.ifchange(\n", "x.ts").unwrap_err();
+        assert!(err.to_string().contains("Malformed"));
+    }
+
+    #[test]
+    fn case_insensitive_unknown_directive_error() {
+        let err = parse_directives_from_content("// lint.frobulate(\"x\")\n", "x.ts").unwrap_err();
         assert!(err.to_string().contains("Unknown LINT directive"));
     }
 
