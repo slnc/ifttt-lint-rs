@@ -5,6 +5,8 @@ use std::io::Read;
 use std::process;
 use std::sync::Mutex;
 
+const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024; // 64 MB
+
 use crate::diff::parse_changed_lines;
 use crate::directive::{parse_directives_from_content, validate_directive_uniqueness};
 use crate::engine::lint_diff;
@@ -53,17 +55,40 @@ pub fn run(cli: Cli) -> i32 {
 
     // Diff mode
     let diff_text = match cli.diff_file.as_deref() {
-        Some(path) if path != "-" => match std::fs::read_to_string(path) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                return 2;
+        Some(path) if path != "-" => {
+            match std::fs::metadata(path).map(|m| m.len()) {
+                Ok(size) if size > MAX_INPUT_BYTES => {
+                    eprintln!(
+                        "Error: diff file is too large ({:.0} MB, max {} MB)",
+                        size as f64 / (1024.0 * 1024.0),
+                        MAX_INPUT_BYTES / (1024 * 1024)
+                    );
+                    return 2;
+                }
+                _ => {}
             }
-        },
+            match std::fs::read_to_string(path) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    return 2;
+                }
+            }
+        }
         _ => {
             let mut buf = String::new();
-            if let Err(e) = std::io::stdin().read_to_string(&mut buf) {
+            if let Err(e) = std::io::stdin()
+                .take(MAX_INPUT_BYTES + 1)
+                .read_to_string(&mut buf)
+            {
                 eprintln!("Error reading stdin: {}", e);
+                return 2;
+            }
+            if buf.len() as u64 > MAX_INPUT_BYTES {
+                eprintln!(
+                    "Error: stdin input is too large (max {} MB)",
+                    MAX_INPUT_BYTES / (1024 * 1024)
+                );
                 return 2;
             }
             buf

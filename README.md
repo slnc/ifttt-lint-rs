@@ -1,4 +1,4 @@
-[![CI](https://github.com/slnc/lint-ifchange/actions/workflows/ci.yml/badge.svg)](https://github.com/slnc/lint-ifchange/actions/workflows/ci.yml)
+[![Test](https://github.com/slnc/lint-ifchange/actions/workflows/test.yml/badge.svg)](https://github.com/slnc/lint-ifchange/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/slnc/lint-ifchange/branch/main/graph/badge.svg)](https://codecov.io/gh/slnc/lint-ifchange)
 
 # lint-ifchange
