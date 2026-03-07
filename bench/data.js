@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772903605702,
+  "lastUpdate": 1772904167382,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1487,6 +1487,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 59955000,
             "range": "± 383716",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "distinct": true,
+          "id": "9a181a55dd49b73691451e2b3c065776d6123468",
+          "message": "fix: decouple publish from provenance to prevent cascading failures",
+          "timestamp": "2026-03-07T18:19:40+01:00",
+          "tree_id": "d6cb27a6596d82c4f570483e835d74103b2a4297",
+          "url": "https://github.com/slnc/ifchange/commit/9a181a55dd49b73691451e2b3c065776d6123468"
+        },
+        "date": 1772904167085,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 3483858,
+            "range": "± 58035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7594656,
+            "range": "± 537887",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 42212631,
+            "range": "± 2006476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 59496711,
+            "range": "± 1150052",
             "unit": "ns/iter"
           }
         ]
