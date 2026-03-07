@@ -40,12 +40,29 @@ pub fn parse_file_directives(file_path: &str) -> Result<Vec<Directive>, Directiv
     parse_directives_from_content(&content, file_path)
 }
 
+/// Extract the effective file extension (or special filename) for comment-style detection.
+///
+/// Handles `Dockerfile.variant` by returning `"dockerfile"` so that hash-style comments
+/// are used regardless of the suffix.
+fn effective_extension(file_path: &str) -> &str {
+    let filename = file_path.rsplit('/').next().unwrap_or(file_path);
+    let filename_lower = filename.as_bytes();
+    // "Dockerfile" or "Dockerfile.something"
+    if filename_lower.len() >= 10
+        && filename_lower[..10].eq_ignore_ascii_case(b"dockerfile")
+        && (filename_lower.len() == 10 || filename_lower[10] == b'.')
+    {
+        return "dockerfile";
+    }
+    file_path.rsplit('.').next().unwrap_or("")
+}
+
 /// Parse LINT directives from content string (used by both file parsing and check mode).
 pub fn parse_directives_from_content(
     content: &str,
     file_path: &str,
 ) -> Result<Vec<Directive>, DirectiveParseError> {
-    let ext = file_path.rsplit('.').next().unwrap_or("");
+    let ext = effective_extension(file_path);
     let comments = extract_comments(content, ext);
     let pats = patterns();
     let mut directives = Vec::new();
@@ -211,7 +228,7 @@ pub fn parse_directives_from_content(
                     line_idx += 1;
                     continue;
                 }
-                // Fallback: try to extract anything from LINT.ThenChange(...)
+                // Fallback: try to extract anything from the ThenChange directive
                 if let Some(caps) = pats.then_change_fallback.captures(line_text) {
                     let raw = caps.get(1).unwrap().as_str().trim();
                     // Multiple quoted strings without brackets: treat as implicit array
@@ -614,6 +631,30 @@ mod tests {
     }
 
     #[test]
+    fn effective_extension_regular_files() {
+        assert_eq!(effective_extension("src/foo.rs"), "rs");
+        assert_eq!(effective_extension("foo.py"), "py");
+        assert_eq!(effective_extension("noext"), "noext");
+    }
+
+    #[test]
+    fn effective_extension_dockerfile_variants() {
+        assert_eq!(effective_extension("Dockerfile"), "dockerfile");
+        assert_eq!(effective_extension("Dockerfile.prod"), "dockerfile");
+        assert_eq!(effective_extension("path/to/Dockerfile"), "dockerfile");
+        assert_eq!(effective_extension("path/to/Dockerfile.dev"), "dockerfile");
+        assert_eq!(effective_extension("DOCKERFILE"), "dockerfile");
+        assert_eq!(effective_extension("dockerfile.staging"), "dockerfile");
+    }
+
+    #[test]
+    fn dockerfile_variant_parses_hash_comments() {
+        let content = "# LINT.IfChange\nRUN echo hi\n# LINT.ThenChange(\"other.py\")\n";
+        let directives = parse_directives_from_content(content, "Dockerfile.prod").unwrap();
+        assert_eq!(then_targets(directives), vec!["other.py"]);
+    }
+
+    #[test]
     fn thenchange_multiline_array_line_comments_dash() {
         let content =
             "-- LINT.IfChange\n-- LINT.ThenChange([\n--   \"a.sql\",\n--   \"b.sql\",\n-- ])\n";
@@ -705,7 +746,7 @@ mod bug_tests {
         assert_eq!(then_targets(directives), vec!["a.txt", "b.txt", "c.txt"]);
     }
 
-    // LINT.Label without quotes should work
+    // Unquoted label names should work
     #[test]
     fn label_unquoted() {
         let content = "// LINT.Label(my_section)\n// LINT.EndLabel\n";

@@ -216,7 +216,7 @@ chmod +x .git/hooks/pre-commit
 | `.conf` | `.fsx` | `.jsx` | `.pro` | `.svelte` | `.zig` |
 | `.cpp` | `.gd` | `.ksh` | `.prolog` | `.svg` | `.zsh` |
 
-**Special files** — `.dockerfile` `.gitignore`
+**Special files** — `Dockerfile` (including `Dockerfile.*` variants), `.gitignore`
 <!-- LINT.ThenChange("src/comment/extractor.rs") -->
 
 ## Recommended AGENTS.md

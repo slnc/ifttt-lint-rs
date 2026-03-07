@@ -83,6 +83,8 @@ const BANG_STYLE_EXTS: &[&str] = &["f", "for", "f90", "f95", "f03", "f08"];
 const HTML_STYLE_EXTS: &[&str] = &[
     "html", "htm", "xml", "svg", "md", "vue", "svelte", "xsl", "xslt", "jsp", "erb",
 ];
+// Special filenames: "dockerfile" matches Dockerfile and Dockerfile.* variants
+// (see effective_extension() in directive/parse.rs), "gitignore" matches .gitignore.
 // LINT.ThenChange("../../README.md#supported-languages")
 
 /// Extract all comments from `content`, using the comment style implied by `file_ext`
