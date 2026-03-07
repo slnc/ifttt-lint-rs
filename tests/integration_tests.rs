@@ -1046,3 +1046,91 @@ fn bom_does_not_break_directives() {
     );
     assert!(stdout.contains("not changed"), "stdout: {}", stdout);
 }
+
+#[test]
+fn no_check_and_no_lint_errors() {
+    let output = Command::new(binary_path())
+        .args(["--no-check", "--no-lint"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code().unwrap(), 2);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--no-check and --no-lint cannot both be set"),
+        "stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn no_check_skips_check_phase() {
+    let dir = TempDir::new().unwrap();
+    // File with duplicate labels would fail check mode
+    write_files(
+        dir.path(),
+        &[(
+            "dup.ts",
+            "// LINT.IfChange(\"foo\")\n// LINT.IfChange(\"foo\")\n",
+        )],
+    );
+    // Empty diff — lint phase passes
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "").unwrap();
+    let output = Command::new(binary_path())
+        .args(["--no-check", &tmp.path().to_string_lossy()])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code().unwrap(),
+        0,
+        "should pass because check is skipped"
+    );
+}
+
+#[test]
+fn default_runs_check_on_cwd() {
+    let dir = TempDir::new().unwrap();
+    // File with duplicate labels
+    write_files(
+        dir.path(),
+        &[(
+            "dup.ts",
+            "// LINT.IfChange(\"foo\")\n// LINT.IfChange(\"foo\")\n",
+        )],
+    );
+    // Empty diff — lint phase would pass, but check should fail
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "").unwrap();
+    let output = Command::new(binary_path())
+        .arg(tmp.path())
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code().unwrap(),
+        1,
+        "should fail because check detects duplicate labels"
+    );
+}
+
+#[test]
+fn no_lint_with_check_dir() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "ok.ts",
+            "// LINT.IfChange(\"a\")\n// LINT.ThenChange(\"b.ts\")\n",
+        )],
+    );
+    let output = Command::new(binary_path())
+        .args(["--no-lint", "-c", &dir.path().to_string_lossy()])
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code().unwrap(),
+        0,
+        "check-only mode should pass with valid directives"
+    );
+}

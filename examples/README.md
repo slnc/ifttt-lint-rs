@@ -28,3 +28,7 @@ See [`workflows/lint-ifchange.yml`](workflows/lint-ifchange.yml) for a complete 
 - `workflows/ifttt-lint.yml`: standalone GitHub Actions workflow using prebuilt + verified binary install.
 
 These files are templates. Copy them into your repository and adjust details as needed.
+
+## What runs by default
+
+Every invocation runs both **directive syntax checking** (validates structure across the repo) and **diff-based linting** (validates cross-file dependencies). Use `--no-check` or `--no-lint` to skip either phase.

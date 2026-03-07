@@ -16,17 +16,23 @@ cargo install --path .
 
 ## Usage
 
-Pipe a diff from your version control system or pass a diff file directly.
+Pipe a diff from your version control system or pass a diff file directly. By default, both directive syntax checking and diff-based linting run in a single invocation.
 
 ```bash
-# Pipe a diff
+# Pipe a diff (checks directive syntax + lints the diff)
 git diff HEAD~1 | lint-ifchange
 
 # Or pass a file
 lint-ifchange changes.diff
 
-# Check mode: validate directive syntax across a directory
-lint-ifchange -c ./src
+# Check only: validate directive syntax, skip diff lint
+lint-ifchange --no-lint
+
+# Check a specific directory
+lint-ifchange --no-lint -c ./src
+
+# Lint only: skip directive syntax check
+git diff HEAD~1 | lint-ifchange --no-check
 
 # Ignore files or labels
 lint-ifchange -i '*.json' -i 'config.toml#db' changes.diff
@@ -38,7 +44,9 @@ lint-ifchange -i '*.json' -i 'config.toml#db' changes.diff
 | `-v, --verbose` | Verbose logging to stderr |
 | `-p, --parallelism <N>` | Thread count (0 = auto) |
 | `-i, --ignore <pattern>` | Ignore file or file#label (repeatable, globs) |
-| `-c, --check <dir>` | Check directory for directive errors |
+| `-c, --check <dir>` | Check directory for directive errors (default: `.`) |
+| `--no-check` | Skip directive syntax check |
+| `--no-lint` | Skip diff-based lint |
 
 Exit codes: **0** ok, **1** lint errors, **2** fatal error.
 
@@ -242,7 +250,7 @@ CI runs `git diff ... | lint-ifchange` on every PR.
   `LINT.ThenChange(a.py, b.py)` or `LINT.ThenChange([a.py, b.py])`.
 - Self-references use `#label` with no filename: `LINT.ThenChange(#other-section)`.
 - Place fences on the source-of-truth side pointing at derived files. Use bidirectional fences only when both sides are live code.
-- Run `lint-ifchange -c .` to validate directive syntax before committing.
+- Run `lint-ifchange --no-lint` to validate directive syntax before committing.
 ```
 
 ## [Architecture](docs/ARCHITECTURE.md) · [Contributing](docs/CONTRIBUTING.md) · [License (MIT)](LICENSE)

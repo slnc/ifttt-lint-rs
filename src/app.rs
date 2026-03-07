@@ -34,12 +34,25 @@ pub struct Cli {
     #[arg(short = 'i', long = "ignore")]
     pub ignore: Vec<String>,
 
-    /// Check a directory for LINT directive errors
+    /// Check directory for LINT directive errors (default: current directory)
     #[arg(short = 'c', long = "check")]
     pub check: Option<String>,
+
+    /// Skip directive syntax check
+    #[arg(long = "no-check")]
+    pub no_check: bool,
+
+    /// Skip diff-based lint
+    #[arg(long = "no-lint")]
+    pub no_lint: bool,
 }
 
 pub fn run(cli: Cli) -> i32 {
+    if cli.no_check && cli.no_lint {
+        eprintln!("Error: --no-check and --no-lint cannot both be set");
+        return 2;
+    }
+
     if cli.parallelism > 0 {
         rayon::ThreadPoolBuilder::new()
             .num_threads(cli.parallelism)
@@ -47,69 +60,79 @@ pub fn run(cli: Cli) -> i32 {
             .ok();
     }
 
-    if let Some(ref dir) = cli.check {
-        return run_check(dir, cli.verbose);
+    let mut exit_code = 0;
+
+    // Check phase: validate directive syntax across a directory.
+    if !cli.no_check {
+        let check_dir = cli.check.as_deref().unwrap_or(".");
+        let check_result = run_check(check_dir, cli.verbose);
+        exit_code = exit_code.max(check_result);
     }
 
-    // Diff mode
-    let diff_text = match cli.diff_file.as_deref() {
-        Some(path) if path != "-" => match std::fs::read_to_string(path) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                return 2;
+    // Lint phase: validate cross-file dependencies from a diff.
+    if !cli.no_lint {
+        let diff_text = match cli.diff_file.as_deref() {
+            Some(path) if path != "-" => match std::fs::read_to_string(path) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    return 2;
+                }
+            },
+            _ => {
+                let mut buf = String::new();
+                if let Err(e) = std::io::stdin().read_to_string(&mut buf) {
+                    eprintln!("Error reading stdin: {}", e);
+                    return 2;
+                }
+                buf
             }
-        },
-        _ => {
-            let mut buf = String::new();
-            if let Err(e) = std::io::stdin().read_to_string(&mut buf) {
-                eprintln!("Error reading stdin: {}", e);
-                return 2;
-            }
-            buf
-        }
-    };
-
-    // Validate diff input
-    let trimmed = diff_text.trim();
-    if !trimmed.is_empty() {
-        let changes = parse_changed_lines(&diff_text);
-        if changes.is_empty() {
-            let has_valid = trimmed.contains("---")
-                || trimmed.contains("diff --git")
-                || trimmed.contains("index ");
-            if !has_valid {
-                let snippet: String = trimmed.chars().take(100).collect();
-                let snippet = snippet.replace('\n', "\\n");
-                eprintln!(
-                    "Error: Invalid diff input: no file changes detected (snippet: \"{}...\")",
-                    snippet
-                );
-                return 2;
-            }
-        }
-    }
-
-    if cli.verbose {
-        let n = if cli.parallelism > 0 {
-            cli.parallelism
-        } else {
-            rayon::current_num_threads()
         };
-        eprintln!("Parallelism: {}", n);
+
+        // Validate diff input
+        let trimmed = diff_text.trim();
+        if !trimmed.is_empty() {
+            let changes = parse_changed_lines(&diff_text);
+            if changes.is_empty() {
+                let has_valid = trimmed.contains("---")
+                    || trimmed.contains("diff --git")
+                    || trimmed.contains("index ");
+                if !has_valid {
+                    let snippet: String = trimmed.chars().take(100).collect();
+                    let snippet = snippet.replace('\n', "\\n");
+                    eprintln!(
+                        "Error: Invalid diff input: no file changes detected (snippet: \"{}...\")",
+                        snippet
+                    );
+                    return 2;
+                }
+            }
+        }
+
+        if cli.verbose {
+            let n = if cli.parallelism > 0 {
+                cli.parallelism
+            } else {
+                rayon::current_num_threads()
+            };
+            eprintln!("Parallelism: {}", n);
+        }
+
+        let result = lint_diff(&diff_text, cli.verbose, &cli.ignore);
+
+        for msg in &result.messages {
+            println!("{}", msg);
+        }
+
+        let lint_exit = if cli.warn && result.exit_code == 1 {
+            0
+        } else {
+            result.exit_code
+        };
+        exit_code = exit_code.max(lint_exit);
     }
 
-    let result = lint_diff(&diff_text, cli.verbose, &cli.ignore);
-
-    for msg in &result.messages {
-        println!("{}", msg);
-    }
-
-    if cli.warn && result.exit_code == 1 {
-        0
-    } else {
-        result.exit_code
-    }
+    exit_code
 }
 
 fn run_check(dir: &str, verbose: bool) -> i32 {

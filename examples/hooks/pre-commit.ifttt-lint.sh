@@ -7,4 +7,6 @@ if ! command -v lint-ifchange >/dev/null 2>&1; then
   exit 1
 fi
 
+# Runs both directive syntax check and diff-based lint.
+# Add --no-check to skip syntax validation.
 git diff --cached --no-ext-diff --relative | lint-ifchange
