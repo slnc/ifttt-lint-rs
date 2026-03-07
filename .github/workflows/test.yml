@@ -28,6 +28,35 @@ jobs:
       - name: Clippy
         run: cargo clippy --quiet --all-targets --all-features -- -D warnings
 
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+
+      - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db # v2
+
+      - name: Test
+        run: cargo test
+
+  dep-hygiene:
+    name: Dependency hygiene
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+
+      - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db # v2
+
       - name: Install nightly toolchain for udeps
         run: |
           rustup toolchain install nightly --profile minimal
@@ -44,23 +73,6 @@ jobs:
 
       - name: Udeps
         run: cargo +nightly udeps --all-targets --all-features
-
-  test:
-    name: Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
-
-      - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db # v2
-
-      - name: Test
-        run: cargo test
 
   ifchange:
     name: IfChange
@@ -102,6 +114,7 @@ jobs:
     if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)) }}
     continue-on-error: true
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v6
         with:
@@ -115,7 +128,7 @@ jobs:
   benchmark:
     name: Performance
     runs-on: ubuntu-latest
-    needs: check
+    needs: test
     permissions:
       contents: write
       deployments: write
@@ -148,6 +161,7 @@ jobs:
   audit:
     name: Security audit
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v6
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
@@ -157,6 +171,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v6
 
