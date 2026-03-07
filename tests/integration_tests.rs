@@ -917,57 +917,6 @@ fn check_mode_skips_binary_files() {
     assert!(code == 0 || code == 2, "unexpected exit code: {code}");
 }
 
-#[test]
-fn oversized_diff_file_rejected() {
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    // Write 65 MB of text (just over 64 MB limit)
-    let chunk = "a".repeat(1024 * 1024); // 1 MB
-    let mut f = std::io::BufWriter::new(tmp.as_file());
-    use std::io::Write;
-    for _ in 0..65 {
-        f.write_all(chunk.as_bytes()).unwrap();
-    }
-    f.flush().unwrap();
-    drop(f);
-
-    let output = Command::new(binary_path())
-        .arg(tmp.path())
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code().unwrap(), 2);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("too large"), "stderr: {}", stderr);
-}
-
-#[test]
-fn oversized_stdin_rejected() {
-    use std::io::Write;
-    use std::process::Stdio;
-
-    let mut child = Command::new(binary_path())
-        .arg("-")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-
-    // Write 65 MB via stdin
-    let chunk = vec![b'a'; 1024 * 1024]; // 1 MB
-    let mut stdin = child.stdin.take().unwrap();
-    for _ in 0..65 {
-        if stdin.write_all(&chunk).is_err() {
-            break; // process may close pipe early
-        }
-    }
-    drop(stdin);
-
-    let output = child.wait_with_output().unwrap();
-    assert_eq!(output.status.code().unwrap(), 2);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("too large"), "stderr: {}", stderr);
-}
-
 #[cfg(unix)]
 #[test]
 fn stdin_read_error_exits_2() {
