@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772898989310,
+  "lastUpdate": 1772900090923,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1055,6 +1055,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 59330485,
             "range": "± 625827",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "distinct": true,
+          "id": "bcb3213941a2cb003e84884ecd00e0c5e5b790c1",
+          "message": "fix: print verbose lines before scan summary\n\n## Why\nVerbose output was printed after the summary, burying the\nheader line. Moving it before makes the summary the last thing\nthe user sees.",
+          "timestamp": "2026-03-07T17:09:43+01:00",
+          "tree_id": "9505443fca6d3939dc5a4460900aa9a49c89c8f4",
+          "url": "https://github.com/slnc/ifchange/commit/bcb3213941a2cb003e84884ecd00e0c5e5b790c1"
+        },
+        "date": 1772900090478,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 3483176,
+            "range": "± 23387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7523469,
+            "range": "± 62847",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 41223861,
+            "range": "± 1342936",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 60805000,
+            "range": "± 547079",
             "unit": "ns/iter"
           }
         ]
