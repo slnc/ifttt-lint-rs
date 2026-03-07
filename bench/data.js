@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772895496893,
+  "lastUpdate": 1772898989310,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1007,6 +1007,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 59175319,
             "range": "± 996771",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "distinct": true,
+          "id": "1af31bcb7212079857c980765098e6205b93a19b",
+          "message": "refactor: improve lint & scan summary lines\n\n## What\n- Lint summary: lead with files checked, then pairs \"in diff\"\n- Scan summary: `N files walked (M with directives), X directive pairs, Y labels`\n- Color error counts in red, separate from dim header\n- Add label counting to scan phase\n- Add --debug flag, merge verbose/debug output levels\n- Simplify error message format in lint engine\n- Docs cleanups (README, CHANGELOG, RELEASE)\n\n## Verify\n- [ ] `git diff | ifchange -v` from a project directory\n- [ ] `ifchange --no-lint -v` to check scan summary with labels",
+          "timestamp": "2026-03-07T16:53:03+01:00",
+          "tree_id": "336bbdc96d33e28aa75a6c674a1b314463e88d3e",
+          "url": "https://github.com/slnc/ifchange/commit/1af31bcb7212079857c980765098e6205b93a19b"
+        },
+        "date": 1772898988423,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 3479080,
+            "range": "± 38210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7498328,
+            "range": "± 64263",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 41103930,
+            "range": "± 1553682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 59330485,
+            "range": "± 625827",
             "unit": "ns/iter"
           }
         ]
