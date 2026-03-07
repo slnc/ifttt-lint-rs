@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772881914311,
+  "lastUpdate": 1772883955070,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -719,6 +719,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 58882526,
             "range": "± 472420",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69429+slnc@users.noreply.github.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "584112a4819e79fb0118f40a41ec333f8caa3229",
+          "message": "fix: avoid direct interpolation of user args in action runner (#12)",
+          "timestamp": "2026-03-07T12:43:10+01:00",
+          "tree_id": "a87a70204db5a4d106181ed6050f45c46f41b246",
+          "url": "https://github.com/slnc/ifchange/commit/584112a4819e79fb0118f40a41ec333f8caa3229"
+        },
+        "date": 1772883954407,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 2110159,
+            "range": "± 66883",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7107671,
+            "range": "± 434535",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 37528956,
+            "range": "± 1399038",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 60426113,
+            "range": "± 666725",
             "unit": "ns/iter"
           }
         ]
