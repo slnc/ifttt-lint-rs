@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772904167382,
+  "lastUpdate": 1772911146113,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1535,6 +1535,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 59496711,
             "range": "± 1150052",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69429+slnc@users.noreply.github.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7509c48c0d6aecc9ea74907aa4495a68d3673bfe",
+          "message": "chore: rename npm package to @slnc/ifchange scoped package (#20)",
+          "timestamp": "2026-03-07T20:15:45+01:00",
+          "tree_id": "28518e895228faae3ecc70bc7fc656e9ba980864",
+          "url": "https://github.com/slnc/ifchange/commit/7509c48c0d6aecc9ea74907aa4495a68d3673bfe"
+        },
+        "date": 1772911145235,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 3514226,
+            "range": "± 95425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 8220463,
+            "range": "± 1238346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 44023661,
+            "range": "± 1829873",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 62215986,
+            "range": "± 2671256",
             "unit": "ns/iter"
           }
         ]
