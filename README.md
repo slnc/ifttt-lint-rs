@@ -67,19 +67,35 @@ Directives live inside comments and must appear at the **start** of a comment li
 - **File extensions** — case-insensitive. `FOO.CSS`, `foo.css`, and `Foo.Css` are all recognized.
 - **File paths and label names** — case-sensitive, matching git and Unix filesystem semantics. `ThenChange("Foo.css")` and `ThenChange("foo.css")` are different targets.
 
-### LINT.IfChange
+### LINT.IfChange / LINT.ThenChange
 
-Marks the start of a guarded block. When lines inside this block change, all `ThenChange` targets must also be modified.
+`IfChange` marks the start of a guarded block. `ThenChange` closes it and declares which files must also change. When lines inside the block change, every target in the `ThenChange` must also be modified.
 
-```yaml
-# LINT.IfChange("inputs")
-inputs:
-  version:
-    description: "Release tag to install"
-# LINT.ThenChange(README.md#action)
+**Simplest case — whole-file target:**
+
+```python
+# LINT.IfChange
+SCHEMA_VERSION = 5
+FIELDS = ["id", "name", "email"]
+# LINT.ThenChange(api/serializer.py)
 ```
 
-With a label (for targeted cross-references):
+If `FIELDS` changes, `api/serializer.py` must also be modified somewhere in the diff.
+
+**With labels — targeted cross-references:**
+
+Labels let you narrow the requirement to a specific section instead of the whole file. Define a label with `LINT.Label` / `LINT.EndLabel` in the target file, then reference it with `file#label` in the `ThenChange`.
+
+```python
+# schema.py                              # api/serializer.py
+# LINT.IfChange("fields")               # LINT.Label("fields")
+FIELDS = ["id", "name", "email"]         FIELD_MAP = {"id": int, "name": str}
+# LINT.ThenChange(api/serializer.py#fields)  # LINT.EndLabel
+```
+
+Now only the labeled region in `api/serializer.py` must change — not the entire file.
+
+**Multiple targets:**
 
 ```yaml
 # LINT.IfChange("inputs")
@@ -91,7 +107,7 @@ inputs:
 # ])
 ```
 
-All accepted formats:
+**All accepted IfChange formats:**
 
 ```text
 LINT.IfChange                     # bare (unlabeled)
@@ -100,25 +116,14 @@ LINT.IfChange('my-label')        # labeled, single quotes
 LINT.IfChange(my-label)          # labeled, unquoted
 ```
 
-### LINT.ThenChange
-
-Closes an `IfChange` block and declares which files (and optionally labels) must also change.
-
-**Single target:**
+**All accepted ThenChange formats:**
 
 ```text
-LINT.ThenChange("other.py")        # quoted
-LINT.ThenChange('other.py')        # single quotes
-LINT.ThenChange(other.py)          # unquoted
-LINT.ThenChange("other.py#label")  # with label reference
-LINT.ThenChange("#label")          # self-reference (same file)
-```
-
-**Multiple targets — array syntax:**
-
-```text
-LINT.ThenChange(["a.ts", "b.ts"])                   # inline array
-LINT.ThenChange(["a.ts", "config.py#db", "c.sql"])  # with labels
+LINT.ThenChange(other.py)                          # single target
+LINT.ThenChange("other.py#label")                  # with label reference
+LINT.ThenChange(#label)                            # self-reference (same file)
+LINT.ThenChange("a.py", "b.py")                    # comma-separated
+LINT.ThenChange(["a.ts", "config.py#db", "c.sql"]) # array syntax
 ```
 
 Multi-line array (each line in its own comment):
@@ -129,14 +134,6 @@ Multi-line array (each line in its own comment):
 //   "config.py#db",
 //   "schema.sql",
 // ])
-```
-
-**Multiple targets — comma-separated (no brackets):**
-
-```text
-LINT.ThenChange("a.py", "b.py")        # quoted, no brackets
-LINT.ThenChange(a.py, b.py)            # unquoted, no brackets
-LINT.ThenChange(/src/a.py, /src/b.py)  # absolute paths, unquoted
 ```
 
 ### LINT.Label / LINT.EndLabel
@@ -269,9 +266,8 @@ CI runs `git diff ... | ifchange` on every PR.
 
 ## [Architecture](docs/ARCHITECTURE.md) · [Contributing](docs/CONTRIBUTING.md) · [License (MIT)](LICENSE)
 
----
-
 [![Test](https://github.com/slnc/ifchange/actions/workflows/test.yml/badge.svg)](https://github.com/slnc/ifchange/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/slnc/ifchange/branch/main/graph/badge.svg)](https://codecov.io/gh/slnc/ifchange)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=slnc_ifchange&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=slnc_ifchange)
 [![Sigstore](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev/)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)

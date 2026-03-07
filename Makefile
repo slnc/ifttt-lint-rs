@@ -1,4 +1,4 @@
-.PHONY: build test perf test_coverage setup check check_fix check_audit check-commit-msg
+.PHONY: build test perf perf_history test_coverage setup check check_fix check_audit check-commit-msg
 
 build:
 	cargo build --release
@@ -54,6 +54,14 @@ perf: build
 	@echo ""
 	@echo "── parser: single 16k-line diff ──"
 	@cargo bench --bench latency_16kloc_bench 2>&1 | grep -E "^[a-z_]|time:"
+
+perf_history:
+	@gh api 'repos/slnc/ifchange/contents/bench/data.js?ref=gh-pages' --jq '.content' \
+		| base64 -d \
+		| sed 's/^window.BENCHMARK_DATA = //' \
+		| jq -r '.entries.Benchmark[-100:] | reverse | .[] | (.commit.timestamp | split("T")[0]) as $$d | (.commit.id[:7]) as $$s | (.benches | map({(.name): (.value / 1e6 | . * 100 | round / 100 | tostring + " ms")}) | add) as $$b | [$$d, $$s, $$b["lint_latency_16kloc_diff"] // "-", $$b["lint_1000_files"] // "-", $$b["lint_5000_files"] // "-", $$b["scan_5000_files"] // "-"] | @tsv' \
+		| (echo "DATE\tCOMMIT\tLINT_16K\tLINT_1K\tLINT_5K\tSCAN_5K" && cat) \
+		| column -t -s '	'
 
 test_coverage:
 	cargo llvm-cov --workspace --all-features --html
