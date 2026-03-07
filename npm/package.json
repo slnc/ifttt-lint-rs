@@ -20,5 +20,9 @@
   "engines": {
     "node": ">=14"
   },
-  "os": ["linux", "darwin", "win32"]
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ]
 }
