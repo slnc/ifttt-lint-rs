@@ -5,6 +5,13 @@
 
 ### Features
 
+* initial release of ifchange ([860af68](https://github.com/slnc/ifchange/commit/860af68fbdd48baed7866002adce016a95304303))
+
+## 0.1.0 (2026-03-07)
+
+
+### Features
+
 * add GitHub Action for lint-ifchange ([4ce430a](https://github.com/slnc/ifchange/commit/4ce430a6fbcc114e5f510034b21680665439d568))
 * add HTML comment support for md/html/xml ([b9db6b0](https://github.com/slnc/ifchange/commit/b9db6b0ee14e54543b40e0f0fb56837733280bc1))
 * add lint-ifchange to pre-commit hook ([d8f71cf](https://github.com/slnc/ifchange/commit/d8f71cfb2c074fa8155807340deecaa13a170151))
