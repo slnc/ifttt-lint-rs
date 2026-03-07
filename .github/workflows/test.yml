@@ -36,6 +36,39 @@ jobs:
       - name: Test
         run: cargo test
 
+  benchmark:
+    name: Performance
+    runs-on: ubuntu-latest
+    needs: check
+    permissions:
+      contents: write
+      deployments: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run benchmarks
+        run: |
+          cargo bench --bench lint_bench --bench scan_bench --bench latency_16kloc_bench -- --output-format bencher 2>&1 | tee bench_output.txt
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: cargo
+          output-file-path: bench_output.txt
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: bench
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: ${{ github.event_name == 'pull_request' }}
+          alert-comment-cc-users: '@slnc'
+
   audit:
     name: Security audit
     runs-on: ubuntu-latest
