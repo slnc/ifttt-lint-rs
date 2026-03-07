@@ -7,21 +7,14 @@ use tempfile::TempDir;
 
 #[test]
 fn warn_mode() {
-    let dir = TempDir::new().unwrap();
-    write_files(
-        dir.path(),
+    let (code, _, stderr) = lint_case(
         &[
-            (
-                "file1.ts",
-                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"file2.ts\")\n",
-            ),
+            ("file1.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"file2.ts\")\n"),
             ("file2.ts", "const v = 1;\n"),
         ],
+        &[("file1.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"file2.ts\")")],
+        &["-w"],
     );
-    let diff = make_diff(dir.path(), &[
-        ("file1.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"file2.ts\")"),
-    ]);
-    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["-w"]);
     assert_eq!(code, 0, "warn mode should exit 0, stderr: {}", stderr);
 }
 
@@ -42,42 +35,39 @@ fn ignore_glob() {
         ("file.json", "@@ -1,2 +1,2 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed\n // LINT.ThenChange(\"nochange.ts\")"),
     ]);
     // Without ignore: should error
-    let (code1, _, _) = run_lint(&diff);
+    let (code1, _, _) = run_lint(&diff, &[]);
     assert_eq!(code1, 1);
     // With ignore: should pass
-    let (code2, _, _) = run_lint_with_args(&diff, &["-i", "*.json"]);
+    let (code2, _, _) = run_lint(&diff, &["-i", "*.json"]);
     assert_eq!(code2, 0);
 }
 
 #[test]
 fn ignore_orphan_thenchange_by_target() {
-    let dir = TempDir::new().unwrap();
-    write_files(dir.path(), &[("a.ts", "// LINT.ThenChange(\"foo.ts\")\n")]);
-    let diff = make_diff(dir.path(), &[("a.ts", "@@ -1 +1 @@\n-// LINT.ThenChange(\"foo.ts\")\n+// LINT.ThenChange(\"foo.ts\") // changed")]);
-    let (code, _stdout, _stderr) = run_lint_with_args(&diff, &["-i", "foo.ts"]);
+    let (code, _, _) = lint_case(
+        &[("a.ts", "// LINT.ThenChange(\"foo.ts\")\n")],
+        &[("a.ts", "@@ -1 +1 @@\n-// LINT.ThenChange(\"foo.ts\")\n+// LINT.ThenChange(\"foo.ts\") // changed")],
+        &["-i", "foo.ts"],
+    );
     assert_eq!(code, 0);
 }
 
 #[test]
 fn ignore_orphan_ifchange_by_label() {
-    let dir = TempDir::new().unwrap();
-    write_files(dir.path(), &[("a.ts", "// LINT.IfChange(\"cfg\")\n")]);
-    let diff = make_diff(
-        dir.path(),
+    let (code, _, _) = lint_case(
+        &[("a.ts", "// LINT.IfChange(\"cfg\")\n")],
         &[(
             "a.ts",
             "@@ -1 +1 @@\n-// LINT.IfChange(\"cfg\")\n+// LINT.IfChange(\"cfg\") // changed",
         )],
+        &["-i", "a.ts#cfg"],
     );
-    let (code, _stdout, _stderr) = run_lint_with_args(&diff, &["-i", "a.ts#cfg"]);
     assert_eq!(code, 0);
 }
 
 #[test]
 fn phase2_parse_error_ignored_by_target_ignore() {
-    let dir = TempDir::new().unwrap();
-    write_files(
-        dir.path(),
+    let (code, _, _) = lint_case(
         &[
             (
                 "a.ts",
@@ -85,42 +75,31 @@ fn phase2_parse_error_ignored_by_target_ignore() {
             ),
             ("b.ts", "// LINT.IfChange(\n"),
         ],
-    );
-    let diff = make_diff(
-        dir.path(),
         &[(
             "a.ts",
             "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")",
         )],
+        &["-i", "b.ts"],
     );
-    let (code, _stdout, _stderr) = run_lint_with_args(&diff, &["-i", "b.ts"]);
     assert_eq!(code, 0);
 }
 
 #[test]
 fn phase2_parse_error_ignored_by_if_label_ignore() {
-    let dir = TempDir::new().unwrap();
-    write_files(
-        dir.path(),
+    let (code, _, _) = lint_case(
         &[
-            (
-                "a.ts",
-                "// LINT.IfChange(\"cfg\")\nx=1\n// LINT.ThenChange(\"b.ts\")\n",
-            ),
+            ("a.ts", "// LINT.IfChange(\"cfg\")\nx=1\n// LINT.ThenChange(\"b.ts\")\n"),
             ("b.ts", "// LINT.IfChange(\n"),
         ],
+        &[("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange(\"cfg\")\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")")],
+        &["-i", "a.ts#cfg"],
     );
-    let diff = make_diff(dir.path(), &[(
-        "a.ts",
-        "@@ -1,3 +1,3 @@\n // LINT.IfChange(\"cfg\")\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")",
-    )]);
-    let (code, _stdout, _stderr) = run_lint_with_args(&diff, &["-i", "a.ts#cfg"]);
     assert_eq!(code, 0);
 }
 
 #[test]
 fn verbose_output() {
-    let (code, _, stderr) = run_lint_with_args("", &["-v"]);
+    let (code, _, stderr) = run_lint("", &["-v"]);
     assert_eq!(code, 0);
     assert!(
         stderr.contains("scan:"),
@@ -136,22 +115,17 @@ fn verbose_output() {
 
 #[test]
 fn verbose_shows_directive_pairs_and_summary() {
-    let dir = TempDir::new().unwrap();
-    write_files(
-        dir.path(),
+    let (code, _, stderr) = lint_case(
         &[
-            (
-                "a.ts",
-                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
-            ),
+            ("a.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n"),
             ("b.ts", "const v = 1;\n"),
         ],
+        &[
+            ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"b.ts\")"),
+            ("b.ts", "@@ -1 +1 @@\n-const v = 1;\n+const v = 2;"),
+        ],
+        &["-v"],
     );
-    let diff = make_diff(dir.path(), &[
-        ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"b.ts\")"),
-        ("b.ts", "@@ -1 +1 @@\n-const v = 1;\n+const v = 2;"),
-    ]);
-    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["-v"]);
     assert_eq!(code, 0);
     assert!(
         stderr.contains("lint:"),
@@ -167,22 +141,17 @@ fn verbose_shows_directive_pairs_and_summary() {
 
 #[test]
 fn debug_implies_verbose() {
-    let dir = TempDir::new().unwrap();
-    write_files(
-        dir.path(),
+    let (code, _, stderr) = lint_case(
         &[
-            (
-                "a.ts",
-                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
-            ),
+            ("a.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n"),
             ("b.ts", "const v = 1;\n"),
         ],
+        &[
+            ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"b.ts\")"),
+            ("b.ts", "@@ -1 +1 @@\n-const v = 1;\n+const v = 2;"),
+        ],
+        &["--debug"],
     );
-    let diff = make_diff(dir.path(), &[
-        ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"b.ts\")"),
-        ("b.ts", "@@ -1 +1 @@\n-const v = 1;\n+const v = 2;"),
-    ]);
-    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["--debug"]);
     assert_eq!(code, 0);
     assert!(
         stderr.contains("lint: 1 pair checked"),
@@ -198,9 +167,7 @@ fn debug_implies_verbose() {
 
 #[test]
 fn debug_changed_file_progress() {
-    let dir = TempDir::new().unwrap();
-    write_files(
-        dir.path(),
+    let (code, _, stderr) = lint_case(
         &[
             (
                 "a.ts",
@@ -208,15 +175,12 @@ fn debug_changed_file_progress() {
             ),
             ("b.ts", "x=1\n"),
         ],
-    );
-    let diff = make_diff(
-        dir.path(),
         &[(
             "a.ts",
             "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")",
         )],
+        &["--debug"],
     );
-    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["--debug"]);
     assert_eq!(code, 1);
     assert!(
         stderr.contains("Processing changed file:"),
@@ -232,20 +196,15 @@ fn debug_changed_file_progress() {
 
 #[test]
 fn debug_ignored_orphans_log_messages() {
-    let dir = TempDir::new().unwrap();
-    write_files(
-        dir.path(),
+    let (code, _, stderr) = lint_case(
         &[
             ("orphan_then.ts", "// LINT.ThenChange(\"foo.ts\")\n"),
             ("orphan_if.ts", "// LINT.IfChange(\"cfg\")\n"),
         ],
-    );
-    let diff = make_diff(dir.path(), &[
-        ("orphan_then.ts", "@@ -1 +1 @@\n-// LINT.ThenChange(\"foo.ts\")\n+// LINT.ThenChange(\"foo.ts\") // changed"),
-        ("orphan_if.ts", "@@ -1 +1 @@\n-// LINT.IfChange(\"cfg\")\n+// LINT.IfChange(\"cfg\") // changed"),
-    ]);
-    let (code, _stdout, stderr) = run_lint_with_args(
-        &diff,
+        &[
+            ("orphan_then.ts", "@@ -1 +1 @@\n-// LINT.ThenChange(\"foo.ts\")\n+// LINT.ThenChange(\"foo.ts\") // changed"),
+            ("orphan_if.ts", "@@ -1 +1 @@\n-// LINT.IfChange(\"cfg\")\n+// LINT.IfChange(\"cfg\") // changed"),
+        ],
         &["--debug", "-i", "foo.ts", "-i", "orphan_if.ts#cfg"],
     );
     assert_eq!(code, 0);
@@ -263,14 +222,14 @@ fn debug_ignored_orphans_log_messages() {
 
 #[test]
 fn debug_jobs_uses_explicit_value() {
-    let (code, _stdout, stderr) = run_lint_with_args("", &["--debug", "-j", "2"]);
+    let (code, _, stderr) = run_lint("", &["--debug", "-j", "2"]);
     assert_eq!(code, 0);
     assert!(stderr.contains("Parallelism: 2"), "stderr: {}", stderr);
 }
 
 #[test]
 fn jobs_flag_path() {
-    let (code, _stdout, _stderr) = run_lint_with_args("", &["-j", "2"]);
+    let (code, _, _) = run_lint("", &["-j", "2"]);
     assert_eq!(code, 0);
 }
 
@@ -299,7 +258,7 @@ fn missing_diff_file_exits_2() {
 #[test]
 fn stdin_diff_mode() {
     let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1 +1 @@\n-a\n+b\n";
-    let (code, _stdout, _stderr) = run_lint_stdin(diff, &["-"]);
+    let (code, _, _) = run_lint_stdin(diff, &["-"]);
     assert_eq!(code, 0);
 }
 
@@ -465,6 +424,6 @@ fn binary_stdin_does_not_crash() {
 #[test]
 fn binary_data_in_diff_hunks_does_not_crash() {
     let diff = "--- a/f.bin\n+++ b/f.bin\n@@ -1 +1 @@\n-\x00\x01\x02\n+\x03\x04\x05\n";
-    let (code, _stdout, _stderr) = run_lint(diff);
+    let (code, _, _) = run_lint(diff, &[]);
     assert_eq!(code, 0);
 }

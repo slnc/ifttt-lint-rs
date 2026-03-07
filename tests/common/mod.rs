@@ -3,6 +3,7 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use tempfile::TempDir;
 
 pub fn binary_path() -> String {
     let path = env!("CARGO_BIN_EXE_ifchange");
@@ -31,20 +32,7 @@ pub fn make_diff(dir: &Path, changes: &[(&str, &str)]) -> String {
     diff_lines.join("\n")
 }
 
-pub fn run_lint(diff: &str) -> (i32, String, String) {
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    fs::write(tmp.path(), diff).unwrap();
-    let output = Command::new(binary_path())
-        .arg(tmp.path())
-        .output()
-        .unwrap();
-    let code = output.status.code().unwrap_or(-1);
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    (code, stdout, stderr)
-}
-
-pub fn run_lint_with_args(diff: &str, args: &[&str]) -> (i32, String, String) {
+pub fn run_lint(diff: &str, args: &[&str]) -> (i32, String, String) {
     let tmp = tempfile::NamedTempFile::new().unwrap();
     fs::write(tmp.path(), diff).unwrap();
     let output = Command::new(binary_path())
@@ -74,6 +62,29 @@ pub fn run_lint_stdin(input: &str, args: &[&str]) -> (i32, String, String) {
         .write_all(input.as_bytes())
         .unwrap();
     let output = child.wait_with_output().unwrap();
+    let code = output.status.code().unwrap_or(-1);
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    (code, stdout, stderr)
+}
+
+pub fn lint_case(
+    files: &[(&str, &str)],
+    changes: &[(&str, &str)],
+    args: &[&str],
+) -> (i32, String, String) {
+    let dir = TempDir::new().unwrap();
+    write_files(dir.path(), files);
+    let diff = make_diff(dir.path(), changes);
+    run_lint(&diff, args)
+}
+
+pub fn run_scan(dir: &Path, args: &[&str]) -> (i32, String, String) {
+    let output = Command::new(binary_path())
+        .args(args)
+        .args(["-s", &dir.to_string_lossy()])
+        .output()
+        .unwrap();
     let code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();

@@ -1,5 +1,14 @@
 # ifchange
 
+[![Test](https://github.com/slnc/ifchange/actions/workflows/test.yml/badge.svg)](https://github.com/slnc/ifchange/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/slnc/ifchange/branch/main/graph/badge.svg)](https://codecov.io/gh/slnc/ifchange)
+[![crates.io](https://img.shields.io/crates/v/ifchange)](https://crates.io/crates/ifchange)
+[![npm](https://img.shields.io/npm/v/ifchange)](https://www.npmjs.com/package/ifchange)
+[![PyPI](https://img.shields.io/pypi/v/ifchange)](https://pypi.org/project/ifchange/)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=slnc_ifchange&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=slnc_ifchange)
+[![Sigstore](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev/)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+
 **Keep related files in sync. Automatically catch forgotten correlated changes in pull requests.**
 
 Ever renamed a field in `schema.sql` but forgot to update the ORM model? Changed a constant in one file while its copy in another went stale? These cross-file dependencies are invisible to compilers and easy to miss in code review. `ifchange` is a file dependency linter that enforces co-changes across files so that related code never drifts out of sync.
@@ -8,7 +17,19 @@ Add lightweight comment directives to mark related sections. When a guarded bloc
 
 Based on Google's internal LINT.IfChange/ThenChange system. Supports **128 file extensions** across 50+ languages — works with any file type that has comments. Inspired by [ebrevdo/ifttt-lint](https://github.com/ebrevdo/ifttt-lint).
 
+**[Install](#install) · [Usage](#usage) · [Directive Syntax](#directive-syntax) · [CI / Automation](#ci--automation) · [Performance](#performance) · [Supported Languages](#supported-languages)**
+
 ## Install
+
+```bash
+cargo install ifchange        # Rust / crates.io
+npm install -g ifchange       # Node.js / npm
+pip install ifchange          # Python / PyPI
+```
+
+Pre-built binaries for Linux, macOS, and Windows are available on [GitHub Releases](https://github.com/slnc/ifchange/releases).
+
+Build from source:
 
 ```bash
 cargo install --path .
@@ -21,7 +42,17 @@ Pipe a diff from your version control system or pass a diff file directly. By de
 ```bash
 # Pipe a diff (checks directive syntax + lints the diff)
 git diff HEAD~1 | ifchange
+```
 
+When errors are found, output looks like:
+
+```
+error: schema.py#fields:5 -> api/serializer.py#fields: expected changes in block (2-8), but none found
+
+found 1 error (1 lint)
+```
+
+```bash
 # Or pass a file
 ifchange changes.diff
 
@@ -49,14 +80,6 @@ ifchange -i 'schema.sql' -i 'config.toml#db' changes.diff
 | `--no-lint` | Skip diff-based lint |
 
 Exit codes: **0** ok, **1** lint errors, **2** fatal error.
-
-When errors are found, output looks like:
-
-```
-error: schema.py#fields:5 -> api/serializer.py#fields: expected changes in block (2-8), but none found
-
-found 1 error (1 lint)
-```
 
 ## Directive Syntax
 
@@ -228,9 +251,12 @@ chmod +x .git/hooks/pre-commit
 
 During `0.x`, minor versions may include breaking changes.
 
-<!-- LINT.IfChange("supported-languages") -->
 ## Supported Languages
 
+<details>
+<summary>128 file extensions across 50+ languages</summary>
+
+<!-- LINT.IfChange("supported-languages") -->
 | | | | | | |
 |---|---|---|---|---|---|
 | `.ada` | `.cr` | `.gleam` | `.kt` | `.proto` | `.swift` |
@@ -258,9 +284,12 @@ During `0.x`, minor versions may include breaking changes.
 **Special files** — `Dockerfile` (including `Dockerfile.*` variants), `.gitignore`
 <!-- LINT.ThenChange("src/comment/extract.rs") -->
 
+</details>
+
 ## Recommended AGENTS.md
 
-Add the following to your repository's `AGENTS.md` (or equivalent AI-agent instructions file) so coding agents use `ifchange` directives correctly:
+<details>
+<summary>Copy this snippet into your repository's AGENTS.md so coding agents use ifchange directives correctly.</summary>
 
 ```markdown
 ## Cross-file dependencies (ifchange)
@@ -284,10 +313,6 @@ CI runs `git diff ... | ifchange` on every PR.
 - Run `ifchange --no-lint` to validate directive syntax before committing.
 ```
 
-## [Architecture](docs/ARCHITECTURE.md) · [Contributing](docs/CONTRIBUTING.md) · [License (MIT)](LICENSE)
+</details>
 
-[![Test](https://github.com/slnc/ifchange/actions/workflows/test.yml/badge.svg)](https://github.com/slnc/ifchange/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/slnc/ifchange/branch/main/graph/badge.svg)](https://codecov.io/gh/slnc/ifchange)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=slnc_ifchange&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=slnc_ifchange)
-[![Sigstore](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev/)
-[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+## [Architecture](docs/ARCHITECTURE.md) · [Contributing](docs/CONTRIBUTING.md) · [License (MIT)](LICENSE)

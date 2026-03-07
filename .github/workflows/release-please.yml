@@ -1,0 +1,18 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@a02a34c4d625f9be7cb89f4291f2343e4b830e3d # v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

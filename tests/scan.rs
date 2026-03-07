@@ -15,11 +15,8 @@ fn scan_mode_duplicate_labels() {
             "// LINT.IfChange(\"foo\")\n// LINT.IfChange(\"bar\")\n// LINT.IfChange(\"foo\")\n",
         )],
     );
-    let output = Command::new(binary_path())
-        .args(["-s", &dir.path().to_string_lossy()])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code().unwrap(), 1);
+    let (code, _, _) = run_scan(dir.path(), &[]);
+    assert_eq!(code, 1);
 }
 
 #[test]
@@ -32,22 +29,16 @@ fn scan_mode_unique_labels() {
             "// LINT.IfChange(\"a\")\n// LINT.IfChange(\"b\")\n",
         )],
     );
-    let output = Command::new(binary_path())
-        .args(["-s", &dir.path().to_string_lossy()])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code().unwrap(), 0);
+    let (code, _, _) = run_scan(dir.path(), &[]);
+    assert_eq!(code, 0);
 }
 
 #[test]
 fn scan_mode_skips_non_lint_files() {
     let dir = TempDir::new().unwrap();
     write_files(dir.path(), &[("plain.ts", "const x = 1;\n")]);
-    let output = Command::new(binary_path())
-        .args(["-s", &dir.path().to_string_lossy()])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code().unwrap(), 0);
+    let (code, _, _) = run_scan(dir.path(), &[]);
+    assert_eq!(code, 0);
 }
 
 #[cfg(unix)]
@@ -78,12 +69,8 @@ fn scan_mode_unreadable_file_is_skipped() {
 fn scan_mode_debug_and_parse_error() {
     let dir = TempDir::new().unwrap();
     write_files(dir.path(), &[("bad.ts", "// LINT.ThenChange(\n")]);
-    let output = Command::new(binary_path())
-        .args(["-s", &dir.path().to_string_lossy(), "--debug"])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code().unwrap(), 1);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let (code, _, stderr) = run_scan(dir.path(), &["--debug"]);
+    assert_eq!(code, 1);
     assert!(stderr.contains("Validating file:"), "stderr: {}", stderr);
     assert!(
         stderr.contains("Malformed LINT.ThenChange"),
@@ -115,12 +102,8 @@ fn scan_mode_lowercase_directives() {
             "// lint.ifchange(\"lbl\")\nconst v = 1;\n// lint.thenchange(\"other.ts\")\n",
         )],
     );
-    let output = Command::new(binary_path())
-        .args(["--no-lint", "-s", &dir.path().to_string_lossy(), "-v"])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code().unwrap(), 0);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(code, 0);
     assert!(
         stderr.contains("1 file") || stderr.contains("1 directive"),
         "scan should detect lowercase directives, stderr: {}",
@@ -138,14 +121,98 @@ fn scan_mode_lowercase_duplicate_labels() {
             "// lint.ifchange(\"foo\")\n// lint.ifchange(\"foo\")\n",
         )],
     );
-    let output = Command::new(binary_path())
-        .args(["--no-lint", "-s", &dir.path().to_string_lossy()])
-        .output()
-        .unwrap();
+    let (code, _, _) = run_scan(dir.path(), &["--no-lint"]);
     assert_eq!(
-        output.status.code().unwrap(),
-        1,
+        code, 1,
         "duplicate lowercase labels should be detected as errors"
+    );
+}
+
+#[test]
+fn scan_mode_mixed_case_directives() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "upper.ts",
+                "// LINT.IFCHANGE(\"a\")\ncode\n// LINT.THENCHANGE(\"other.ts\")\n",
+            ),
+            (
+                "lower.py",
+                "# lint.ifchange(\"b\")\ncode\n# lint.thenchange(\"other.py\")\n",
+            ),
+            (
+                "mixed.rs",
+                "// Lint.IfChange(\"c\")\ncode\n// Lint.ThenChange(\"other.rs\")\n",
+            ),
+            (
+                "weird.go",
+                "// lInT.iFcHaNgE(\"d\")\ncode\n// LINT.thenchange(\"other.go\")\n",
+            ),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(code, 0, "stderr: {}", stderr);
+    assert!(
+        stderr.contains("4 files") && stderr.contains("4 directive pairs"),
+        "scan should detect all 4 files with mixed-case directives, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_mode_mixed_case_label_endlabel() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[("labels.ts", "// lint.label(\"sec\")\ncode\n// LINT.EndLabel\n// Lint.Label(\"other\")\nmore\n// LINT.ENDLABEL\n")],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(
+        code, 0,
+        "mixed-case labels should parse without error, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_mode_mixed_case_duplicate_across_casing() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "case.ts",
+            "// lint.ifchange(\"foo\")\n// LINT.IFCHANGE(\"foo\")\n",
+        )],
+    );
+    let (code, _, _) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "duplicate label 'foo' should be detected regardless of directive casing"
+    );
+}
+
+#[test]
+fn scan_mode_mixed_case_pair_within_file() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "mixed_pair.ts",
+            "// lint.ifchange\ncode\n// LINT.THENCHANGE(\"other.ts\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(
+        code, 0,
+        "mixed-case pair should be valid, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("1 directive pair"),
+        "should detect 1 pair, stderr: {}",
+        stderr
     );
 }
 
@@ -159,12 +226,8 @@ fn scan_verbose_shows_summary() {
             "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
         )],
     );
-    let output = Command::new(binary_path())
-        .args(["--no-lint", "-s", &dir.path().to_string_lossy(), "-v"])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code().unwrap(), 0);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(code, 0);
     assert!(
         stderr.contains("scan:"),
         "scan verbose should show summary, stderr: {}",
