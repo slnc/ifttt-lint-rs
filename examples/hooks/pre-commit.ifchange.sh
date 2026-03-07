@@ -9,7 +9,7 @@ fi
 
 if ! command -v ifchange >/dev/null 2>&1; then
   echo "ifchange not found in PATH. Install it first." >&2
-  echo "Examples: cargo install ifchange | npm install -g ifchange | pip install ifchange" >&2
+  echo "Examples: cargo install ifchange | npm install -g @slnc/ifchange | pip install ifchange" >&2
   exit 1
 fi
 
