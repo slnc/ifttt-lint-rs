@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772867880355,
+  "lastUpdate": 1772871768124,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -47,6 +47,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 37141299,
             "range": "± 403167",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "distinct": true,
+          "id": "86dd078bca9a4ef253952a4663c1bc77de16f8fb",
+          "message": "ci: add release-please automation and commitlint enforcement\n\n- Add release-please workflow and config for automated versioning,\n  changelog generation, and Release PR creation\n- Add commitlint workflow to validate PR titles against conventional\n  commit format\n- Add x-release-please-version marker to pypi/pyproject.toml\n- Disable generate_release_notes in release-binaries (release-please\n  handles release notes)\n- Add docs/RELEASE.md documenting the release workflow\n- Narrow IfChange block in README to only guard the language table\n- Include pending README, test refactoring changes",
+          "timestamp": "2026-03-07T09:20:43+01:00",
+          "tree_id": "5f66db125cff77c457110539bf9b27a7dc4f5d6c",
+          "url": "https://github.com/slnc/ifchange/commit/86dd078bca9a4ef253952a4663c1bc77de16f8fb"
+        },
+        "date": 1772871767302,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 2114935,
+            "range": "± 9314",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7038470,
+            "range": "± 275267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 35971602,
+            "range": "± 1452411",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 58163055,
+            "range": "± 416613",
             "unit": "ns/iter"
           }
         ]
