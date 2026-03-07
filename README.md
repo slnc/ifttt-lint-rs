@@ -217,10 +217,31 @@ Use as a pre-commit hook, CI lint step, or GitHub Actions check to enforce cross
 
 ### Pre-commit hook
 
+Manual git hook:
+
 ```bash
 cp examples/hooks/pre-commit.ifchange.sh .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
+
+`pre-commit` framework support (this repo ships `.pre-commit-hooks.yaml`):
+
+```yaml
+repos:
+  # Option A: ifchange already installed in PATH
+  - repo: https://github.com/slnc/ifchange
+    rev: v0.1.0
+    hooks:
+      - id: ifchange
+
+  # Option B: install ifchange via this repo's PyPI wrapper (no Rust toolchain)
+  - repo: https://github.com/slnc/ifchange
+    rev: v0.1.0
+    hooks:
+      - id: ifchange-pypi
+```
+
+`ifchange-pypi` downloads the platform binary from GitHub Releases and verifies checksums automatically.
 
 ## Performance
 

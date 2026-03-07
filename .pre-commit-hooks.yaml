@@ -1,0 +1,16 @@
+- id: ifchange
+  name: ifchange
+  description: Lint staged changes with ifchange (requires ifchange in PATH).
+  entry: scripts/pre_commit_ifchange.py
+  language: system
+  pass_filenames: false
+  always_run: true
+- id: ifchange-pypi
+  name: ifchange (PyPI)
+  description: Lint staged changes with ifchange installed from this repo's PyPI wrapper.
+  entry: scripts/pre_commit_ifchange.py
+  language: python
+  additional_dependencies:
+    - ./pypi
+  pass_filenames: false
+  always_run: true
