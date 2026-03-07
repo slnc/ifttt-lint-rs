@@ -59,7 +59,7 @@ fn bench_lint_5000(c: &mut Criterion) {
 
     c.bench_function("lint_5000_files", |b| {
         b.iter(|| {
-            let result = lint_diff(&diff, false, &ignore);
+            let result = lint_diff(&diff, false, false, &ignore);
             assert_eq!(result.exit_code, 0);
         });
     });
@@ -71,7 +71,7 @@ fn bench_lint_1000(c: &mut Criterion) {
 
     c.bench_function("lint_1000_files", |b| {
         b.iter(|| {
-            let result = lint_diff(&diff, false, &ignore);
+            let result = lint_diff(&diff, false, false, &ignore);
             assert_eq!(result.exit_code, 0);
         });
     });

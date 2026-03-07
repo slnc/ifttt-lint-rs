@@ -52,7 +52,7 @@ fn bench_lint_latency_16kloc(c: &mut Criterion) {
 
     c.bench_function("lint_latency_16kloc_diff", |b| {
         b.iter(|| {
-            let result = lint_diff(&diff, false, &ignore);
+            let result = lint_diff(&diff, false, false, &ignore);
             assert_eq!(result.exit_code, 0);
         });
     });

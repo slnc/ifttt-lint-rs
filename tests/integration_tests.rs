@@ -102,8 +102,8 @@ fn no_error_when_target_changed() {
         ("file1.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"file2.ts\")"),
         ("file2.ts", "@@ -1 +1 @@\n-const v = 1;\n+const v = 2;"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
-    assert_eq!(code, 0, "stdout: {}", stdout);
+    let (code, _stdout, stderr) = run_lint(&diff);
+    assert_eq!(code, 0, "stderr: {}", stderr);
 }
 
 #[test]
@@ -122,9 +122,9 @@ fn error_when_target_not_changed() {
     let diff = make_diff(dir.path(), &[
         ("file1.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"file2.ts\")"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
-    assert!(stdout.contains("not changed"), "stdout: {}", stdout);
+    assert!(stderr.contains("not changed"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -138,8 +138,8 @@ fn labeled_change_ok() {
         ("file1.ts", "@@ -1,2 +1,2 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed\n // LINT.ThenChange(\"file2.ts#label1\")"),
         ("file2.ts", "@@ -1,5 +1,5 @@\n // header\n // LINT.Label(\"label1\")\n-console.log(1);\n+console.log(2);\n // LINT.EndLabel\n // footer"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
-    assert_eq!(code, 0, "stdout: {}", stdout);
+    let (code, _stdout, stderr) = run_lint(&diff);
+    assert_eq!(code, 0, "stderr: {}", stderr);
 }
 
 #[test]
@@ -153,9 +153,9 @@ fn labeled_change_missing() {
         ("file1.ts", "@@ -1,2 +1,2 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed\n // LINT.ThenChange(\"file2.ts#label1\")"),
         ("file2.ts", "@@ -1,5 +1,5 @@\n // header\n // LINT.Label(\"label1\")\n console.log(1);\n-// LINT.EndLabel\n+// LINT.EndLabel // changed\n // footer"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
-    assert!(stdout.contains("expected changes in"), "stdout: {}", stdout);
+    assert!(stderr.contains("expected changes in"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -168,12 +168,12 @@ fn orphan_then_change() {
     let diff = make_diff(dir.path(), &[
         ("file1.ts", "@@ -1 +1 @@\n-// LINT.ThenChange(\"foo.ts\")\n+// LINT.ThenChange(\"foo.ts\") // changed"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("unexpected ThenChange"),
-        "stdout: {}",
-        stdout
+        stderr.contains("unexpected ThenChange"),
+        "stderr: {}",
+        stderr
     );
 }
 
@@ -188,9 +188,9 @@ fn orphan_if_change() {
             "@@ -1 +1 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed",
         )],
     );
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
-    assert!(stdout.contains("missing ThenChange"), "stdout: {}", stdout);
+    assert!(stderr.contains("missing ThenChange"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -209,8 +209,8 @@ fn warn_mode() {
     let diff = make_diff(dir.path(), &[
         ("file1.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"file2.ts\")"),
     ]);
-    let (code, stdout, _) = run_lint_with_args(&diff, &["-w"]);
-    assert_eq!(code, 0, "warn mode should exit 0, stdout: {}", stdout);
+    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["-w"]);
+    assert_eq!(code, 0, "warn mode should exit 0, stderr: {}", stderr);
 }
 
 #[test]
@@ -248,11 +248,11 @@ fn cross_reference_ignores_outside_changes() {
     let diff = make_diff(dir.path(), &[
         ("source.py", "@@ -1,9 +1,9 @@\n # Header\n-def helper():\n+def helper_modified():\n     return 1\n # LINT.IfChange\n class Status:\n     ACTIVE = 1\n # LINT.ThenChange(\"target.py\")\n-def other():\n+def other_modified():\n     return 2"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(
         code, 0,
-        "changes outside IfChange should not trigger, stdout: {}",
-        stdout
+        "changes outside IfChange should not trigger, stderr: {}",
+        stderr
     );
 }
 
@@ -267,11 +267,11 @@ fn cross_reference_detects_inside_changes() {
     let diff = make_diff(dir.path(), &[
         ("source.py", "@@ -2,5 +2,5 @@\n # LINT.IfChange\n class Status:\n     ACTIVE = 1\n-    INACTIVE = 2\n+    PENDING = 3\n # LINT.ThenChange(\"target.py\")"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(
         code, 1,
-        "changes inside IfChange should trigger, stdout: {}",
-        stdout
+        "changes inside IfChange should trigger, stderr: {}",
+        stderr
     );
 }
 
@@ -288,11 +288,11 @@ fn self_reference_with_label() {
             "@@ -4,4 +4,4 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed",
         )],
     );
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(
         code, 1,
-        "self-reference should require label changes, stdout: {}",
-        stdout
+        "self-reference should require label changes, stderr: {}",
+        stderr
     );
 }
 
@@ -354,7 +354,16 @@ fn scan_mode_unique_labels() {
 fn verbose_output() {
     let (code, _, stderr) = run_lint_with_args("", &["-v"]);
     assert_eq!(code, 0);
-    assert!(stderr.contains("Parallelism:"), "stderr: {}", stderr);
+    assert!(
+        stderr.contains("[ifttt] scanned"),
+        "verbose should show scan summary, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("[ifttt] validated"),
+        "verbose should show lint summary, stderr: {}",
+        stderr
+    );
 }
 
 #[test]
@@ -380,12 +389,12 @@ fn ifchange_label_in_error_context() {
     let diff = make_diff(dir.path(), &[
         ("file1.ts", "@@ -1,2 +1,2 @@\n-// LINT.IfChange('g')\n+// LINT.IfChange('g') // changed\n // LINT.ThenChange(\"file2.ts\")"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("#g:"),
-        "error should include label context, stdout: {}",
-        stdout
+        stderr.contains("#g:"),
+        "error should include label context, stderr: {}",
+        stderr
     );
 }
 
@@ -400,11 +409,11 @@ fn no_change_outside_block() {
     let diff = make_diff(dir.path(), &[
         ("file1.ts", "@@ -1,5 +1,5 @@\n-const other = 0;\n+const other = 99;\n // LINT.IfChange\n const v = 1;\n // LINT.ThenChange(\"file2.ts\")\n const more = 2;"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(
         code, 0,
-        "changes outside block should not trigger, stdout: {}",
-        stdout
+        "changes outside block should not trigger, stderr: {}",
+        stderr
     );
 }
 
@@ -444,18 +453,18 @@ fn jobs_flag_path() {
 }
 
 #[test]
-fn verbose_jobs_uses_explicit_value() {
-    let (code, _stdout, stderr) = run_lint_with_args("", &["-v", "-j", "2"]);
+fn debug_jobs_uses_explicit_value() {
+    let (code, _stdout, stderr) = run_lint_with_args("", &["--debug", "-j", "2"]);
     assert_eq!(code, 0);
     assert!(stderr.contains("Parallelism: 2"), "stderr: {}", stderr);
 }
 
 #[test]
-fn scan_mode_verbose_and_parse_error() {
+fn scan_mode_debug_and_parse_error() {
     let dir = TempDir::new().unwrap();
     write_files(dir.path(), &[("bad.ts", "// LINT.ThenChange(\n")]);
     let output = Command::new(binary_path())
-        .args(["-s", &dir.path().to_string_lossy(), "-v"])
+        .args(["-s", &dir.path().to_string_lossy(), "--debug"])
         .output()
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 1);
@@ -514,12 +523,12 @@ fn changed_file_parse_error_reported() {
             "@@ -1 +1 @@\n-// LINT.IfChange(\n+// LINT.IfChange(",
         )],
     );
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("Malformed LINT.IfChange"),
-        "stdout: {}",
-        stdout
+        stderr.contains("Malformed LINT.IfChange"),
+        "stderr: {}",
+        stderr
     );
 }
 
@@ -537,12 +546,12 @@ fn duplicate_labels_in_changed_file_reported() {
         "dup.ts",
         "@@ -1,3 +1,3 @@\n // LINT.IfChange(\"x\")\n // LINT.Label(\"x\")\n-// LINT.ThenChange(\"other.ts\")\n+// LINT.ThenChange(\"other.ts\") // changed",
     )]);
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("duplicate directive label"),
-        "stdout: {}",
-        stdout
+        stderr.contains("duplicate directive label"),
+        "stderr: {}",
+        stderr
     );
 }
 
@@ -563,9 +572,9 @@ fn malformed_target_file_reports_not_found() {
         "a.ts",
         "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const A = 1;\n+const A = 2;\n // LINT.ThenChange(\"b.ts\")",
     )]);
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
-    assert!(stdout.contains("not found"), "stdout: {}", stdout);
+    assert!(stderr.contains("not found"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -582,9 +591,9 @@ fn missing_target_file_reports_not_found() {
         "a.ts",
         "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const A = 1;\n+const A = 2;\n // LINT.ThenChange(\"missing.ts\")",
     )]);
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
-    assert!(stdout.contains("not found"), "stdout: {}", stdout);
+    assert!(stderr.contains("not found"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -607,17 +616,17 @@ fn missing_target_label_reports_available_labels() {
         ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const A = 1;\n+const A = 2;\n // LINT.ThenChange(\"b.ts#missing\")"),
         ("b.ts", "@@ -1,3 +1,3 @@\n // LINT.Label(\"present\")\n-let x = 1;\n+let x = 2;\n // LINT.EndLabel"),
     ]);
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("label 'missing' not found"),
-        "stdout: {}",
-        stdout
+        stderr.contains("label 'missing' not found"),
+        "stderr: {}",
+        stderr
     );
     assert!(
-        stdout.contains("Available labels: present"),
-        "stdout: {}",
-        stdout
+        stderr.contains("Available labels: present"),
+        "stderr: {}",
+        stderr
     );
 }
 
@@ -656,17 +665,17 @@ fn multiple_ifchange_marks_first_orphan() {
         "a.ts",
         "@@ -1,4 +1,4 @@\n // LINT.IfChange(\"first\")\n // LINT.IfChange(\"second\")\n-const x = 1;\n+const x = 2;\n // LINT.ThenChange(\"b.ts\")",
     )]);
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("missing ThenChange after IfChange('first')"),
-        "stdout: {}",
-        stdout
+        stderr.contains("missing ThenChange after IfChange('first')"),
+        "stderr: {}",
+        stderr
     );
 }
 
 #[test]
-fn verbose_changed_file_progress() {
+fn debug_changed_file_progress() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
@@ -685,7 +694,7 @@ fn verbose_changed_file_progress() {
             "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")",
         )],
     );
-    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["-v"]);
+    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["--debug"]);
     assert_eq!(code, 1);
     assert!(
         stderr.contains("Processing changed file:"),
@@ -700,7 +709,7 @@ fn verbose_changed_file_progress() {
 }
 
 #[test]
-fn verbose_ignored_orphans_log_messages() {
+fn debug_ignored_orphans_log_messages() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
@@ -713,8 +722,10 @@ fn verbose_ignored_orphans_log_messages() {
         ("orphan_then.ts", "@@ -1 +1 @@\n-// LINT.ThenChange(\"foo.ts\")\n+// LINT.ThenChange(\"foo.ts\") // changed"),
         ("orphan_if.ts", "@@ -1 +1 @@\n-// LINT.IfChange(\"cfg\")\n+// LINT.IfChange(\"cfg\") // changed"),
     ]);
-    let (code, _stdout, stderr) =
-        run_lint_with_args(&diff, &["-v", "-i", "foo.ts", "-i", "orphan_if.ts#cfg"]);
+    let (code, _stdout, stderr) = run_lint_with_args(
+        &diff,
+        &["--debug", "-i", "foo.ts", "-i", "orphan_if.ts#cfg"],
+    );
     assert_eq!(code, 0);
     assert!(
         stderr.contains("Ignoring orphan ThenChange"),
@@ -751,12 +762,12 @@ fn phase2_duplicate_labels_in_target_file_reported() {
             "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")",
         )],
     );
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("duplicate directive label 'dup'"),
-        "stdout: {}",
-        stdout
+        stderr.contains("duplicate directive label 'dup'"),
+        "stderr: {}",
+        stderr
     );
 }
 
@@ -822,12 +833,12 @@ fn missing_label_with_no_available_labels_reports_none() {
         ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const A = 1;\n+const A = 2;\n // LINT.ThenChange(\"b.ts#x\")"),
         ("b.ts", "@@ -1 +1 @@\n-const B = 1;\n+const B = 2;"),
     ]);
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
     assert!(
-        stdout.contains("Available labels: none"),
-        "stdout: {}",
-        stdout
+        stderr.contains("Available labels: none"),
+        "stderr: {}",
+        stderr
     );
 }
 
@@ -849,9 +860,9 @@ fn target_in_diff_with_no_changed_lines_reports_expected_changes() {
         "--- a/{0}/a.ts\n+++ b/{0}/a.ts\n@@ -1,3 +1,3 @@\n // LINT.IfChange\n-x=1\n+x=2\n // LINT.ThenChange(\"b.ts\")\n--- a/{0}/b.ts\n+++ b/{0}/b.ts\n@@ -1 +1 @@\n one\n",
         dir_str
     );
-    let (code, stdout, _stderr) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(code, 1);
-    assert!(stdout.contains("expected changes in"), "stdout: {}", stdout);
+    assert!(stderr.contains("expected changes in"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -931,7 +942,8 @@ fn stdin_read_error_exits_2() {
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 2);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Error reading stdin"), "stderr: {}", stderr);
+    assert!(stderr.contains("Error:"), "stderr: {}", stderr);
+    assert!(stderr.contains("reading stdin"), "stderr: {}", stderr);
 }
 
 // File path matching in ThenChange is case-sensitive: FOO.txt != foo.txt.
@@ -953,12 +965,12 @@ fn thenchange_path_is_case_sensitive() {
         ("source.py", "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"FOO.txt\")"),
         ("foo.txt", "@@ -1 +1 @@\n-# data\n+# updated data"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     // FOO.txt is not the same as foo.txt — should fail (target not found or not changed)
     assert_eq!(
         code, 1,
-        "case-different path should not match, stdout: {}",
-        stdout
+        "case-different path should not match, stderr: {}",
+        stderr
     );
 }
 
@@ -982,11 +994,11 @@ fn cross_ref_trigger_scoped_to_specific_block() {
         ("source.py", "@@ -5,3 +5,3 @@\n # LINT.IfChange(\"block_b\")\n-VALUE_B = 1\n+VALUE_B = 2\n # LINT.ThenChange(\"target_b.py\")"),
         ("target_b.py", "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-MIRROR_B = 1\n+MIRROR_B = 2\n # LINT.ThenChange(\"source.py\")"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(
         code, 0,
-        "changing block_b should not trigger block_a, stdout: {}",
-        stdout
+        "changing block_b should not trigger block_a, stderr: {}",
+        stderr
     );
 }
 
@@ -1010,13 +1022,13 @@ fn filename_with_spaces_trailing_tab() {
         "--- a/{0}/my dir/my file.py\t\n+++ b/{0}/my dir/my file.py\t\n@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"other file.py\")\n",
         dir_str
     );
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     assert_eq!(
         code, 1,
-        "should detect violation despite trailing tab, stdout: {}",
-        stdout
+        "should detect violation despite trailing tab, stderr: {}",
+        stderr
     );
-    assert!(stdout.contains("not changed"), "stdout: {}", stdout);
+    assert!(stderr.contains("not changed"), "stderr: {}", stderr);
 }
 
 // BUG 4: UTF-8 BOM on first line breaks directive detection.
@@ -1037,14 +1049,14 @@ fn bom_does_not_break_directives() {
     let diff = make_diff(dir.path(), &[
         ("bom.py", "@@ -1,3 +1,3 @@\n \u{FEFF}# LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"other.py\")"),
     ]);
-    let (code, stdout, _) = run_lint(&diff);
+    let (code, _stdout, stderr) = run_lint(&diff);
     // Should detect the violation (target not changed), NOT silently pass
     assert_eq!(
         code, 1,
-        "BOM file should still detect directives, stdout: {}",
-        stdout
+        "BOM file should still detect directives, stderr: {}",
+        stderr
     );
-    assert!(stdout.contains("not changed"), "stdout: {}", stdout);
+    assert!(stderr.contains("not changed"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -1132,5 +1144,137 @@ fn no_lint_with_scan_dir() {
         output.status.code().unwrap(),
         0,
         "scan-only mode should pass with valid directives"
+    );
+}
+
+#[test]
+fn errors_go_to_stderr_not_stdout() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.ts",
+                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
+            ),
+            ("b.ts", "const v = 1;\n"),
+        ],
+    );
+    let diff = make_diff(dir.path(), &[
+        ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"b.ts\")"),
+    ]);
+    let (code, stdout, stderr) = run_lint(&diff);
+    assert_eq!(code, 1);
+    assert!(stdout.is_empty(), "stdout should be empty, got: {}", stdout);
+    assert!(stderr.contains("not changed"), "stderr: {}", stderr);
+}
+
+#[test]
+fn verbose_shows_directive_pairs_and_summary() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.ts",
+                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
+            ),
+            ("b.ts", "const v = 1;\n"),
+        ],
+    );
+    let diff = make_diff(dir.path(), &[
+        ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"b.ts\")"),
+        ("b.ts", "@@ -1 +1 @@\n-const v = 1;\n+const v = 2;"),
+    ]);
+    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["-v"]);
+    assert_eq!(code, 0);
+    assert!(
+        stderr.contains("IfChange -> ThenChange(b.ts)"),
+        "verbose should show directive pair, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("validated 1 directive pair"),
+        "verbose should show summary, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn debug_implies_verbose() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.ts",
+                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
+            ),
+            ("b.ts", "const v = 1;\n"),
+        ],
+    );
+    let diff = make_diff(dir.path(), &[
+        ("a.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"b.ts\")"),
+        ("b.ts", "@@ -1 +1 @@\n-const v = 1;\n+const v = 2;"),
+    ]);
+    let (code, _stdout, stderr) = run_lint_with_args(&diff, &["--debug"]);
+    assert_eq!(code, 0);
+    // Debug should include verbose output
+    assert!(
+        stderr.contains("validated 1 directive pair"),
+        "debug should include verbose summary, stderr: {}",
+        stderr
+    );
+    // Debug should also include debug-only output
+    assert!(
+        stderr.contains("Parallelism:"),
+        "debug should show parallelism, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn no_color_suppresses_ansi_codes() {
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "this is not a diff").unwrap();
+    let output = Command::new(binary_path())
+        .arg(tmp.path())
+        .env("NO_COLOR", "1")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code().unwrap(), 2);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains('\x1b'),
+        "NO_COLOR should suppress ANSI codes, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_verbose_shows_summary() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "a.ts",
+            "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
+        )],
+    );
+    let output = Command::new(binary_path())
+        .args(["--no-lint", "-s", &dir.path().to_string_lossy(), "-v"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code().unwrap(), 0);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("[ifttt] scanned"),
+        "scan verbose should show summary, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("directive pair"),
+        "scan verbose should mention directive pairs, stderr: {}",
+        stderr
     );
 }

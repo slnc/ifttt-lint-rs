@@ -12,9 +12,15 @@ use crate::engine::path_utils::format_if_context;
 use crate::engine::types::{FileIndex, Pair, TargetLoad};
 use crate::model::LintResult;
 
-pub fn lint_diff(diff_text: &str, verbose: bool, ignore_list: &[String]) -> LintResult {
+pub fn lint_diff(
+    diff_text: &str,
+    verbose: bool,
+    debug: bool,
+    ignore_list: &[String],
+) -> LintResult {
     let ignore_patterns = parse_ignore_list(ignore_list);
     let mut messages: Vec<String> = Vec::new();
+    let mut verbose_messages: Vec<String> = Vec::new();
     let mut error_count: usize = 0;
 
     let changed_files_map = parse_changed_lines(diff_text);
@@ -26,7 +32,7 @@ pub fn lint_diff(diff_text: &str, verbose: bool, ignore_list: &[String]) -> Lint
         .cloned()
         .collect();
 
-    if verbose {
+    if debug {
         for f in &changed_files {
             eprintln!("Processing changed file: {}", f);
         }
@@ -71,14 +77,14 @@ pub fn lint_diff(diff_text: &str, verbose: bool, ignore_list: &[String]) -> Lint
             }
         }
 
-        if verbose {
+        if debug {
             eprintln!("Finished processing changed file: {}", file);
         }
     }
 
     for (file, line, target) in &orphan_then {
         if should_ignore_target(target, &ignore_patterns) {
-            if verbose {
+            if debug {
                 eprintln!(
                     "[ifttt] Ignoring orphan ThenChange '{}' in {}:{}",
                     target, file, line
@@ -96,7 +102,7 @@ pub fn lint_diff(diff_text: &str, verbose: bool, ignore_list: &[String]) -> Lint
     for (file, line, label) in &orphan_if {
         if let Some(lbl) = label {
             if should_ignore_if_label(file, lbl, &ignore_patterns) {
-                if verbose {
+                if debug {
                     eprintln!(
                         "[ifttt] Ignoring orphan IfChange '{}' in {}:{}",
                         lbl, file, line
@@ -193,6 +199,13 @@ pub fn lint_diff(diff_text: &str, verbose: bool, ignore_list: &[String]) -> Lint
             continue;
         }
 
+        if verbose {
+            verbose_messages.push(format!(
+                "[ifttt] {}:{} IfChange -> ThenChange({})",
+                p.file, p.if_line, p.then_target
+            ));
+        }
+
         let target_changes = changed_lines_map.get(&p.then_target_path);
         let if_ctx = format_if_context(&p.file, p.if_label.as_deref(), p.if_line);
 
@@ -268,8 +281,21 @@ pub fn lint_diff(diff_text: &str, verbose: bool, ignore_list: &[String]) -> Lint
         }
     }
 
+    if verbose {
+        let pair_count = verbose_messages.len();
+        let file_count = changed_files.len();
+        verbose_messages.push(format!(
+            "[ifttt] validated {} directive {} across {} {}",
+            pair_count,
+            if pair_count == 1 { "pair" } else { "pairs" },
+            file_count,
+            if file_count == 1 { "file" } else { "files" },
+        ));
+    }
+
     LintResult {
         exit_code: if error_count > 0 { 1 } else { 0 },
         messages,
+        verbose_messages,
     }
 }

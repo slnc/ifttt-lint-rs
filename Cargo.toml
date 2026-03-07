@@ -17,6 +17,7 @@ rayon = "1"
 ignore = "0.4"
 globset = "0.4"
 thiserror = "2"
+is-terminal = "0.4.17"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }

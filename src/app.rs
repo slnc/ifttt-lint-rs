@@ -1,13 +1,38 @@
 use clap::Parser;
 use ignore::WalkBuilder;
+use is_terminal::IsTerminal;
 use rayon::prelude::*;
 use std::io::Read;
 use std::process;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 use crate::diff::parse_changed_lines;
 use crate::directive::{parse_directives_from_content, validate_directive_uniqueness};
 use crate::engine::lint_diff;
+
+static COLOR_ENABLED: AtomicBool = AtomicBool::new(false);
+
+fn setup_color() {
+    let enabled = std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();
+    COLOR_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+fn red(s: &str) -> String {
+    if COLOR_ENABLED.load(Ordering::Relaxed) {
+        format!("\x1b[31m{}\x1b[0m", s)
+    } else {
+        s.to_string()
+    }
+}
+
+fn dim(s: &str) -> String {
+    if COLOR_ENABLED.load(Ordering::Relaxed) {
+        format!("\x1b[2m{}\x1b[0m", s)
+    } else {
+        s.to_string()
+    }
+}
 
 #[derive(Parser)]
 #[command(
@@ -22,9 +47,13 @@ pub struct Cli {
     #[arg(short = 'w', long = "warn")]
     pub warn: bool,
 
-    /// Show verbose logging (files being processed)
+    /// Show directive pairs and validation summary
     #[arg(short = 'v', long = "verbose")]
     pub verbose: bool,
+
+    /// Show internal processing details (implies --verbose)
+    #[arg(long = "debug")]
+    pub debug: bool,
 
     /// Number of parallel tasks (0 for auto-detect based on CPU cores)
     #[arg(short = 'j', long = "jobs", default_value = "0")]
@@ -48,10 +77,18 @@ pub struct Cli {
 }
 
 pub fn run(cli: Cli) -> i32 {
+    setup_color();
+
     if cli.no_scan && cli.no_lint {
-        eprintln!("Error: --no-scan and --no-lint cannot both be set");
+        eprintln!(
+            "{} --no-scan and --no-lint cannot both be set",
+            red("Error:")
+        );
         return 2;
     }
+
+    let verbose = cli.verbose || cli.debug;
+    let debug = cli.debug;
 
     if cli.jobs > 0 {
         rayon::ThreadPoolBuilder::new()
@@ -65,7 +102,7 @@ pub fn run(cli: Cli) -> i32 {
     // Scan phase: validate directive syntax across a directory.
     if !cli.no_scan {
         let scan_dir = cli.scan.as_deref().unwrap_or(".");
-        let scan_result = run_scan(scan_dir, cli.verbose);
+        let scan_result = run_scan(scan_dir, verbose, debug);
         exit_code = exit_code.max(scan_result);
     }
 
@@ -75,14 +112,14 @@ pub fn run(cli: Cli) -> i32 {
             Some(path) if path != "-" => match std::fs::read_to_string(path) {
                 Ok(content) => content,
                 Err(e) => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("{} {}", red("Error:"), e);
                     return 2;
                 }
             },
             _ => {
                 let mut buf = String::new();
                 if let Err(e) = std::io::stdin().read_to_string(&mut buf) {
-                    eprintln!("Error reading stdin: {}", e);
+                    eprintln!("{} reading stdin: {}", red("Error:"), e);
                     return 2;
                 }
                 buf
@@ -101,7 +138,8 @@ pub fn run(cli: Cli) -> i32 {
                     let snippet: String = trimmed.chars().take(100).collect();
                     let snippet = snippet.replace('\n', "\\n");
                     eprintln!(
-                        "Error: Invalid diff input: no file changes detected (snippet: \"{}...\")",
+                        "{} Invalid diff input: no file changes detected (snippet: \"{}...\")",
+                        red("Error:"),
                         snippet
                     );
                     return 2;
@@ -109,19 +147,23 @@ pub fn run(cli: Cli) -> i32 {
             }
         }
 
-        if cli.verbose {
+        if debug {
             let n = if cli.jobs > 0 {
                 cli.jobs
             } else {
                 rayon::current_num_threads()
             };
-            eprintln!("Parallelism: {}", n);
+            eprintln!("{}", dim(&format!("Parallelism: {}", n)));
         }
 
-        let result = lint_diff(&diff_text, cli.verbose, &cli.ignore);
+        let result = lint_diff(&diff_text, verbose, debug, &cli.ignore);
+
+        for msg in &result.verbose_messages {
+            eprintln!("{}", dim(msg));
+        }
 
         for msg in &result.messages {
-            println!("{}", msg);
+            eprintln!("{}", red(msg));
         }
 
         let lint_exit = if cli.warn && result.exit_code == 1 {
@@ -135,8 +177,10 @@ pub fn run(cli: Cli) -> i32 {
     exit_code
 }
 
-fn run_scan(dir: &str, verbose: bool) -> i32 {
+fn run_scan(dir: &str, verbose: bool, debug: bool) -> i32 {
     let errors: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    let file_count = AtomicUsize::new(0);
+    let directive_pair_count = AtomicUsize::new(0);
 
     let entries: Vec<_> = WalkBuilder::new(dir)
         .build()
@@ -148,8 +192,8 @@ fn run_scan(dir: &str, verbose: bool) -> i32 {
         let path = entry.path();
         let file_path = path.to_string_lossy().to_string();
 
-        if verbose {
-            eprintln!("Validating file: {}", file_path);
+        if debug {
+            eprintln!("{}", dim(&format!("Validating file: {}", file_path)));
         }
 
         let content = match std::fs::read_to_string(path) {
@@ -161,8 +205,28 @@ fn run_scan(dir: &str, verbose: bool) -> i32 {
             return;
         }
 
+        file_count.fetch_add(1, Ordering::Relaxed);
+
         match parse_directives_from_content(&content, &file_path) {
             Ok(directives) => {
+                let pair_count = directives
+                    .iter()
+                    .filter(|d| matches!(d, crate::model::Directive::IfChange { .. }))
+                    .count();
+                directive_pair_count.fetch_add(pair_count, Ordering::Relaxed);
+
+                if verbose && pair_count > 0 {
+                    eprintln!(
+                        "{}",
+                        dim(&format!(
+                            "[ifttt] {}: {} directive {}",
+                            file_path,
+                            pair_count,
+                            if pair_count == 1 { "pair" } else { "pairs" }
+                        ))
+                    );
+                }
+
                 let dup_errors = validate_directive_uniqueness(&directives, &file_path);
                 if !dup_errors.is_empty() {
                     let mut errs = errors.lock().unwrap();
@@ -179,7 +243,25 @@ fn run_scan(dir: &str, verbose: bool) -> i32 {
 
     let errors = errors.into_inner().unwrap();
     for err in &errors {
-        eprintln!("{}", err);
+        eprintln!("{}", red(err));
+    }
+
+    if verbose {
+        let files = file_count.load(Ordering::Relaxed);
+        let pairs = directive_pair_count.load(Ordering::Relaxed);
+        let errs = errors.len();
+        eprintln!(
+            "{}",
+            dim(&format!(
+                "[ifttt] scanned {} {}, {} directive {}, {} {}",
+                files,
+                if files == 1 { "file" } else { "files" },
+                pairs,
+                if pairs == 1 { "pair" } else { "pairs" },
+                errs,
+                if errs == 1 { "error" } else { "errors" },
+            ))
+        );
     }
 
     if errors.is_empty() {
