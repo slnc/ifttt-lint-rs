@@ -32,7 +32,7 @@ jobs:
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          tool: criterionrs
+          tool: cargo
           output-file-path: bench_output.txt
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: bench

@@ -63,18 +63,24 @@ Directives live inside comments and must appear at the **start** of a comment li
 
 Marks the start of a guarded block. When lines inside this block change, all `ThenChange` targets must also be modified.
 
-```python
-# LINT.IfChange
-VALUE = 42
-# LINT.ThenChange(constants.py)
+```yaml
+# LINT.IfChange("inputs")
+inputs:
+  version:
+    description: "Release tag to install"
+# LINT.ThenChange(README.md#action)
 ```
 
 With a label (for targeted cross-references):
 
-```python
-# LINT.IfChange(feature)
-FEATURE_FLAG = True
-# LINT.ThenChange(config.py#feature)
+```yaml
+# LINT.IfChange("inputs")
+inputs:
+  version: ...
+# LINT.ThenChange([
+#   "README.md#action",
+#   "examples/README.md#action",
+# ])
 ```
 
 All accepted formats:
