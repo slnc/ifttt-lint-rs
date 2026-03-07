@@ -27,20 +27,20 @@ pub struct Cli {
     pub verbose: bool,
 
     /// Number of parallel tasks (0 for auto-detect based on CPU cores)
-    #[arg(short = 'p', long = "parallelism", default_value = "0")]
-    pub parallelism: usize,
+    #[arg(short = 'j', long = "jobs", default_value = "0")]
+    pub jobs: usize,
 
     /// Ignore specified file or file#label during linting (repeatable)
     #[arg(short = 'i', long = "ignore")]
     pub ignore: Vec<String>,
 
-    /// Check directory for LINT directive errors (default: current directory)
-    #[arg(short = 'c', long = "check")]
-    pub check: Option<String>,
+    /// Scan directory for LINT directive errors (default: current directory)
+    #[arg(short = 's', long = "scan")]
+    pub scan: Option<String>,
 
-    /// Skip directive syntax check
-    #[arg(long = "no-check")]
-    pub no_check: bool,
+    /// Skip directive syntax scan
+    #[arg(long = "no-scan")]
+    pub no_scan: bool,
 
     /// Skip diff-based lint
     #[arg(long = "no-lint")]
@@ -48,25 +48,25 @@ pub struct Cli {
 }
 
 pub fn run(cli: Cli) -> i32 {
-    if cli.no_check && cli.no_lint {
-        eprintln!("Error: --no-check and --no-lint cannot both be set");
+    if cli.no_scan && cli.no_lint {
+        eprintln!("Error: --no-scan and --no-lint cannot both be set");
         return 2;
     }
 
-    if cli.parallelism > 0 {
+    if cli.jobs > 0 {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(cli.parallelism)
+            .num_threads(cli.jobs)
             .build_global()
             .ok();
     }
 
     let mut exit_code = 0;
 
-    // Check phase: validate directive syntax across a directory.
-    if !cli.no_check {
-        let check_dir = cli.check.as_deref().unwrap_or(".");
-        let check_result = run_check(check_dir, cli.verbose);
-        exit_code = exit_code.max(check_result);
+    // Scan phase: validate directive syntax across a directory.
+    if !cli.no_scan {
+        let scan_dir = cli.scan.as_deref().unwrap_or(".");
+        let scan_result = run_scan(scan_dir, cli.verbose);
+        exit_code = exit_code.max(scan_result);
     }
 
     // Lint phase: validate cross-file dependencies from a diff.
@@ -110,8 +110,8 @@ pub fn run(cli: Cli) -> i32 {
         }
 
         if cli.verbose {
-            let n = if cli.parallelism > 0 {
-                cli.parallelism
+            let n = if cli.jobs > 0 {
+                cli.jobs
             } else {
                 rayon::current_num_threads()
             };
@@ -135,7 +135,7 @@ pub fn run(cli: Cli) -> i32 {
     exit_code
 }
 
-fn run_check(dir: &str, verbose: bool) -> i32 {
+fn run_scan(dir: &str, verbose: bool) -> i32 {
     let errors: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
     let entries: Vec<_> = WalkBuilder::new(dir)

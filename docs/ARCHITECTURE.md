@@ -10,7 +10,7 @@
                                │
               ┌────────────────┴───────────────┐
               ▼                                ▼
-  ┌─── lint mode ────────────┐   ┌─── check mode ──────────┐
+  ┌─── lint mode ────────────┐   ┌─── scan mode ───────────┐
   │                          │   │                         │
   │  diff/parser             │   │  Walk directory (rayon) │
   │  → engine/lint (3-phase) │   │  → parse each file      │
@@ -31,7 +31,7 @@
 The CLI has two modes:
 
 - **Lint mode** (default): takes a unified diff, finds which files changed and where, then validates that all `ThenChange` targets were also modified.
-- **Check mode** (`-c <dir>`): walks a directory tree and validates directive *syntax* (mismatched pairs, duplicate labels, malformed directives) without needing a diff. Useful as a static check in CI or editors.
+- **Scan mode** (`-s <dir>`): walks a directory tree and validates directive *syntax* (mismatched pairs, duplicate labels, malformed directives) without needing a diff. Useful as a static check in CI or editors.
 
 Both modes share the directive parsing layer but differ in what they validate.
 
@@ -54,7 +54,7 @@ For each IfChange→ThenChange pair, check whether the target file (or labeled r
 
 The key subtlety is cross-reference detection: when two files reference each other via `IfChange` blocks, only changes within an `IfChange` region trigger validation. Without this, mutual references would always fire. A change to file `A` triggers a check on file `B`, whose own `IfChange` pointing back at A would trigger again. The cross-reference logic breaks this cycle by narrowing the trigger condition.
 
-## Check Mode
+## Scan Mode
 
 Single pass: walk directory tree (via `ignore` crate, respects `.gitignore`) → parse each file in parallel → report structural errors (orphan `IfChange` without `ThenChange`, duplicate labels, malformed directives). No diff needed, no cross-file validation.
 

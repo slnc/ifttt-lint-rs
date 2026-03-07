@@ -117,7 +117,7 @@ echo ""
 echo "--- Rust check ---"
 for run in 1 2 3; do
     start=$(date +%s%N)
-    "$RUST_BIN" -c "$TMP_DIR" > /dev/null 2>&1
+    "$RUST_BIN" -s "$TMP_DIR" > /dev/null 2>&1
     end=$(date +%s%N)
     elapsed=$(( (end - start) / 1000000 ))
     echo "  Run $run: ${elapsed}ms"

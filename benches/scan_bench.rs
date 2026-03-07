@@ -14,7 +14,7 @@ fn is_hash(ext: &str) -> bool {
     HASH_LANGS.contains(&ext)
 }
 
-fn generate_check_files(total: usize) -> TempDir {
+fn generate_scan_files(total: usize) -> TempDir {
     let dir = TempDir::new().unwrap();
     for i in 0..total {
         let ext = LANGS[i % LANGS.len()];
@@ -33,11 +33,11 @@ fn generate_check_files(total: usize) -> TempDir {
     dir
 }
 
-fn bench_check_5000(c: &mut Criterion) {
-    let dir = generate_check_files(5000);
+fn bench_scan_5000(c: &mut Criterion) {
+    let dir = generate_scan_files(5000);
     let root = dir.path().to_path_buf();
 
-    c.bench_function("check_5000_files", |b| {
+    c.bench_function("scan_5000_files", |b| {
         b.iter(|| {
             let mut errors = Vec::new();
             for entry in WalkBuilder::new(&root)
@@ -66,5 +66,5 @@ fn bench_check_5000(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_check_5000);
+criterion_group!(benches, bench_scan_5000);
 criterion_main!(benches);

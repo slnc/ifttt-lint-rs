@@ -50,7 +50,7 @@ perf: build
 	@cargo bench --bench lint_bench 2>&1 | grep -E "^[a-z_]|time:"
 	@echo ""
 	@echo "── check: 5000 files, directive validation ──"
-	@cargo bench --bench check_bench 2>&1 | grep -E "^[a-z_]|time:"
+	@cargo bench --bench scan_bench 2>&1 | grep -E "^[a-z_]|time:"
 	@echo ""
 	@echo "── parser: single 16k-line diff ──"
 	@cargo bench --bench latency_16kloc_bench 2>&1 | grep -E "^[a-z_]|time:"

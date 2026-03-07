@@ -25,14 +25,14 @@ git diff HEAD~1 | lint-ifchange
 # Or pass a file
 lint-ifchange changes.diff
 
-# Check only: validate directive syntax, skip diff lint
+# Scan only: validate directive syntax, skip diff lint
 lint-ifchange --no-lint
 
-# Check a specific directory
-lint-ifchange --no-lint -c ./src
+# Scan a specific directory
+lint-ifchange --no-lint -s ./src
 
-# Lint only: skip directive syntax check
-git diff HEAD~1 | lint-ifchange --no-check
+# Lint only: skip directive syntax scan
+git diff HEAD~1 | lint-ifchange --no-scan
 
 # Ignore files or labels
 lint-ifchange -i '*.json' -i 'config.toml#db' changes.diff
@@ -42,10 +42,10 @@ lint-ifchange -i '*.json' -i 'config.toml#db' changes.diff
 |------|-------------|
 | `-w, --warn` | Warn instead of failing (exit 0) |
 | `-v, --verbose` | Verbose logging to stderr |
-| `-p, --parallelism <N>` | Thread count (0 = auto) |
+| `-j, --jobs <N>` | Thread count (0 = auto) |
 | `-i, --ignore <pattern>` | Ignore file or file#label (repeatable, globs) |
-| `-c, --check <dir>` | Check directory for directive errors (default: `.`) |
-| `--no-check` | Skip directive syntax check |
+| `-s, --scan <dir>` | Scan directory for directive errors (default: `.`) |
+| `--no-scan` | Skip directive syntax scan |
 | `--no-lint` | Skip diff-based lint |
 
 Exit codes: **0** ok, **1** lint errors, **2** fatal error.

@@ -317,7 +317,7 @@ fn python_hash_comments() {
 }
 
 #[test]
-fn check_mode_duplicate_labels() {
+fn scan_mode_duplicate_labels() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
@@ -327,14 +327,14 @@ fn check_mode_duplicate_labels() {
         )],
     );
     let output = Command::new(binary_path())
-        .args(["-c", &dir.path().to_string_lossy()])
+        .args(["-s", &dir.path().to_string_lossy()])
         .output()
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 1);
 }
 
 #[test]
-fn check_mode_unique_labels() {
+fn scan_mode_unique_labels() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
@@ -344,7 +344,7 @@ fn check_mode_unique_labels() {
         )],
     );
     let output = Command::new(binary_path())
-        .args(["-c", &dir.path().to_string_lossy()])
+        .args(["-s", &dir.path().to_string_lossy()])
         .output()
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 0);
@@ -438,24 +438,24 @@ fn stdin_diff_mode() {
 }
 
 #[test]
-fn parallelism_flag_path() {
-    let (code, _stdout, _stderr) = run_lint_with_args("", &["-p", "2"]);
+fn jobs_flag_path() {
+    let (code, _stdout, _stderr) = run_lint_with_args("", &["-j", "2"]);
     assert_eq!(code, 0);
 }
 
 #[test]
-fn verbose_parallelism_uses_explicit_value() {
-    let (code, _stdout, stderr) = run_lint_with_args("", &["-v", "-p", "2"]);
+fn verbose_jobs_uses_explicit_value() {
+    let (code, _stdout, stderr) = run_lint_with_args("", &["-v", "-j", "2"]);
     assert_eq!(code, 0);
     assert!(stderr.contains("Parallelism: 2"), "stderr: {}", stderr);
 }
 
 #[test]
-fn check_mode_verbose_and_parse_error() {
+fn scan_mode_verbose_and_parse_error() {
     let dir = TempDir::new().unwrap();
     write_files(dir.path(), &[("bad.ts", "// LINT.ThenChange(\n")]);
     let output = Command::new(binary_path())
-        .args(["-c", &dir.path().to_string_lossy(), "-v"])
+        .args(["-s", &dir.path().to_string_lossy(), "-v"])
         .output()
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 1);
@@ -469,11 +469,11 @@ fn check_mode_verbose_and_parse_error() {
 }
 
 #[test]
-fn check_mode_skips_non_lint_files() {
+fn scan_mode_skips_non_lint_files() {
     let dir = TempDir::new().unwrap();
     write_files(dir.path(), &[("plain.ts", "const x = 1;\n")]);
     let output = Command::new(binary_path())
-        .args(["-c", &dir.path().to_string_lossy()])
+        .args(["-s", &dir.path().to_string_lossy()])
         .output()
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 0);
@@ -481,7 +481,7 @@ fn check_mode_skips_non_lint_files() {
 
 #[cfg(unix)]
 #[test]
-fn check_mode_unreadable_file_is_skipped() {
+fn scan_mode_unreadable_file_is_skipped() {
     use std::os::unix::fs::PermissionsExt;
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("secret.ts");
@@ -491,7 +491,7 @@ fn check_mode_unreadable_file_is_skipped() {
     fs::set_permissions(&path, perms).unwrap();
 
     let output = Command::new(binary_path())
-        .args(["-c", &dir.path().to_string_lossy()])
+        .args(["-s", &dir.path().to_string_lossy()])
         .output()
         .unwrap();
 
@@ -904,11 +904,11 @@ fn binary_data_in_diff_hunks_does_not_crash() {
 }
 
 #[test]
-fn check_mode_skips_binary_files() {
+fn scan_mode_skips_binary_files() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("binary.rs"), b"\x00\x01\x02\x03\xff\xfe").unwrap();
     let output = Command::new(binary_path())
-        .arg("--check")
+        .arg("--scan")
         .arg(dir.path().join("binary.rs").to_string_lossy().to_string())
         .output()
         .unwrap();
@@ -1048,22 +1048,22 @@ fn bom_does_not_break_directives() {
 }
 
 #[test]
-fn no_check_and_no_lint_errors() {
+fn no_scan_and_no_lint_errors() {
     let output = Command::new(binary_path())
-        .args(["--no-check", "--no-lint"])
+        .args(["--no-scan", "--no-lint"])
         .output()
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 2);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--no-check and --no-lint cannot both be set"),
+        stderr.contains("--no-scan and --no-lint cannot both be set"),
         "stderr: {}",
         stderr
     );
 }
 
 #[test]
-fn no_check_skips_check_phase() {
+fn no_scan_skips_scan_phase() {
     let dir = TempDir::new().unwrap();
     // File with duplicate labels would fail check mode
     write_files(
@@ -1077,19 +1077,19 @@ fn no_check_skips_check_phase() {
     let tmp = tempfile::NamedTempFile::new().unwrap();
     fs::write(tmp.path(), "").unwrap();
     let output = Command::new(binary_path())
-        .args(["--no-check", &tmp.path().to_string_lossy()])
+        .args(["--no-scan", &tmp.path().to_string_lossy()])
         .current_dir(dir.path())
         .output()
         .unwrap();
     assert_eq!(
         output.status.code().unwrap(),
         0,
-        "should pass because check is skipped"
+        "should pass because scan is skipped"
     );
 }
 
 #[test]
-fn default_runs_check_on_cwd() {
+fn default_runs_scan_on_cwd() {
     let dir = TempDir::new().unwrap();
     // File with duplicate labels
     write_files(
@@ -1110,12 +1110,12 @@ fn default_runs_check_on_cwd() {
     assert_eq!(
         output.status.code().unwrap(),
         1,
-        "should fail because check detects duplicate labels"
+        "should fail because scan detects duplicate labels"
     );
 }
 
 #[test]
-fn no_lint_with_check_dir() {
+fn no_lint_with_scan_dir() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
@@ -1125,12 +1125,12 @@ fn no_lint_with_check_dir() {
         )],
     );
     let output = Command::new(binary_path())
-        .args(["--no-lint", "-c", &dir.path().to_string_lossy()])
+        .args(["--no-lint", "-s", &dir.path().to_string_lossy()])
         .output()
         .unwrap();
     assert_eq!(
         output.status.code().unwrap(),
         0,
-        "check-only mode should pass with valid directives"
+        "scan-only mode should pass with valid directives"
     );
 }

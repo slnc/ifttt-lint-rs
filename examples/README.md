@@ -31,4 +31,4 @@ These files are templates. Copy them into your repository and adjust details as 
 
 ## What runs by default
 
-Every invocation runs both **directive syntax checking** (validates structure across the repo) and **diff-based linting** (validates cross-file dependencies). Use `--no-check` or `--no-lint` to skip either phase.
+Every invocation runs both **directive syntax checking** (validates structure across the repo) and **diff-based linting** (validates cross-file dependencies). Use `--no-scan` or `--no-lint` to skip either phase.

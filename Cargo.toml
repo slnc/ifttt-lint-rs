@@ -27,7 +27,7 @@ name = "lint_bench"
 harness = false
 
 [[bench]]
-name = "check_bench"
+name = "scan_bench"
 harness = false
 
 [[bench]]

@@ -8,5 +8,5 @@ if ! command -v lint-ifchange >/dev/null 2>&1; then
 fi
 
 # Runs both directive syntax check and diff-based lint.
-# Add --no-check to skip syntax validation.
+# Add --no-scan to skip syntax validation.
 git diff --cached --no-ext-diff --relative | lint-ifchange
