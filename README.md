@@ -2,10 +2,11 @@
 
 [![Test](https://github.com/slnc/ifchange/actions/workflows/test.yml/badge.svg)](https://github.com/slnc/ifchange/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/slnc/ifchange/branch/main/graph/badge.svg)](https://codecov.io/gh/slnc/ifchange)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=slnc_ifchange&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=slnc_ifchange)
+<br />
 [![crates.io](https://img.shields.io/crates/v/ifchange)](https://crates.io/crates/ifchange)
 [![npm](https://img.shields.io/npm/v/ifchange)](https://www.npmjs.com/package/ifchange)
 [![PyPI](https://img.shields.io/pypi/v/ifchange)](https://pypi.org/project/ifchange/)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=slnc_ifchange&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=slnc_ifchange)
 [![Sigstore](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev/)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 
@@ -66,15 +67,18 @@ ifchange --no-lint -s ./src
 git diff HEAD~1 | ifchange --no-scan
 
 # Ignore specific files or labeled sections
-ifchange -i 'schema.sql' -i 'config.toml#db' changes.diff
+ifchange -i '**/*.sql' -i 'config.toml#db' changes.diff
 ```
+
+`--ignore` uses glob patterns (`*`, `?`, `**`) and matches both full relative paths and basenames.
 
 | Flag | Description |
 |------|-------------|
 | `-w, --warn` | Warn instead of failing (exit 0) |
 | `-v, --verbose` | Verbose logging to stderr |
+| `--debug` | Internal processing logs (implies `--verbose`) |
 | `-j, --jobs <N>` | Thread count (0 = auto) |
-| `-i, --ignore <pattern>` | Ignore file or file#label (repeatable, globs) |
+| `-i, --ignore <pattern>` | Ignore path glob or `path-glob#label` (repeatable) |
 | `-s, --scan <dir>` | Scan directory for directive errors (default: `.`) |
 | `--no-scan` | Skip directive syntax scan |
 | `--no-lint` | Skip diff-based lint |

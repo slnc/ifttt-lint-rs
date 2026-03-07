@@ -26,7 +26,7 @@ inputs:
 #   "README.md#action",
 #   "examples/README.md#action",
 #   "examples/workflows/ifchange.yml",
-#   ".github/workflows/ifchange.yml",
+#   ".github/workflows/test.yml",
 # ])
 
 runs:
