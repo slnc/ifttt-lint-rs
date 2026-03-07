@@ -4,6 +4,44 @@ default:
 build:
     cargo build --release
 
+check:
+    @cargo fmt --all -- --check
+    @cargo clippy --quiet --all-targets --all-features -- -D warnings
+
+check_audit:
+    cargo fmt --all -- --check
+    cargo clippy --quiet --all-targets --all-features -- -D warnings
+    cargo machete
+    cargo +nightly udeps --all-targets --all-features
+
+check_fix:
+    @cargo fmt --all
+    @cargo clippy --quiet --all-targets --all-features -- -D warnings
+
+clean:
+    cargo clean
+
+perf:
+    @echo "── lint: 5000 files, 21 lang types ──"
+    @cargo bench --bench lint_bench 2>&1 | grep -E "^[a-z_]|time:"
+    @echo ""
+    @echo "── check: 5000 files, directive validation ──"
+    @cargo bench --bench scan_bench 2>&1 | grep -E "^[a-z_]|time:"
+    @echo ""
+    @echo "── parser: single 16k-line diff ──"
+    @cargo bench --bench latency_16kloc_bench 2>&1 | grep -E "^[a-z_]|time:"
+
+perf_history:
+    @gh api 'repos/slnc/ifchange/contents/bench/data.js?ref=gh-pages' --jq '.content' \
+        | base64 -d \
+        | sed 's/^window.BENCHMARK_DATA = //' \
+        | jq -r '.entries.Benchmark[-100:] | reverse | .[] | (.commit.timestamp | split("T")[0]) as $d | (.commit.id[:7]) as $s | (.benches | map({(.name): (.value / 1e6 | . * 100 | round / 100 | tostring + " ms")}) | add) as $b | [$d, $s, $b["lint_latency_16kloc_diff"] // "-", $b["lint_1000_files"] // "-", $b["lint_5000_files"] // "-", $b["scan_5000_files"] // "-"] | @tsv' \
+        | (echo "DATE\tCOMMIT\tLINT_16K\tLINT_1K\tLINT_5K\tSCAN_5K" && cat) \
+        | column -t -s '	'
+
+setup:
+    ./scripts/setup.sh
+
 test:
     #!/usr/bin/env bash
     set -eu
@@ -33,44 +71,7 @@ test:
         exit 1
     fi
 
-check:
-    @cargo fmt --all -- --check
-
-check-fix:
-    @cargo fmt --all
-    @cargo clippy --quiet --all-targets --all-features -- -D warnings
-
-check-audit:
-    cargo fmt --all -- --check
-    cargo clippy --quiet --all-targets --all-features -- -D warnings
-    cargo machete
-    cargo +nightly udeps --all-targets --all-features
-
-perf: build
-    @echo "── lint: 5000 files, 21 lang types ──"
-    @cargo bench --bench lint_bench 2>&1 | grep -E "^[a-z_]|time:"
-    @echo ""
-    @echo "── check: 5000 files, directive validation ──"
-    @cargo bench --bench scan_bench 2>&1 | grep -E "^[a-z_]|time:"
-    @echo ""
-    @echo "── parser: single 16k-line diff ──"
-    @cargo bench --bench latency_16kloc_bench 2>&1 | grep -E "^[a-z_]|time:"
-
-perf-history:
-    @gh api 'repos/slnc/ifchange/contents/bench/data.js?ref=gh-pages' --jq '.content' \
-        | base64 -d \
-        | sed 's/^window.BENCHMARK_DATA = //' \
-        | jq -r '.entries.Benchmark[-100:] | reverse | .[] | (.commit.timestamp | split("T")[0]) as $d | (.commit.id[:7]) as $s | (.benches | map({(.name): (.value / 1e6 | . * 100 | round / 100 | tostring + " ms")}) | add) as $b | [$d, $s, $b["lint_latency_16kloc_diff"] // "-", $b["lint_1000_files"] // "-", $b["lint_5000_files"] // "-", $b["scan_5000_files"] // "-"] | @tsv' \
-        | (echo "DATE\tCOMMIT\tLINT_16K\tLINT_1K\tLINT_5K\tSCAN_5K" && cat) \
-        | column -t -s '	'
-
-test-coverage:
+test_coverage:
     cargo llvm-cov --workspace --all-features --html
     cargo llvm-cov report --json --summary-only --output-path target/llvm-cov/summary.json
     @jq -r '.data[0].totals as $t | "Coverage: lines \($t.lines.covered)/\($t.lines.count) (\(($t.lines.percent*100|round)/100)%) | regions \($t.regions.covered)/\($t.regions.count) (\(($t.regions.percent*100|round)/100)%) | functions \($t.functions.covered)/\($t.functions.count) (\(($t.functions.percent*100|round)/100)%)"' target/llvm-cov/summary.json
-
-setup:
-    ./scripts/setup.sh
-
-check-commit-msg msg_file:
-    .githooks/commit-msg "{{msg_file}}"
