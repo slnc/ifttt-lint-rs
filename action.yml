@@ -1,4 +1,4 @@
-name: ifchange
+name: "IfChange (slnc)"
 description: Enforce LINT.IfChange/ThenChange directives in pull requests
 branding:
   icon: check-circle
