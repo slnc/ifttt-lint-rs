@@ -7,7 +7,7 @@
 [![Sigstore](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev/)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![crates.io](https://img.shields.io/crates/v/ifchange)](https://crates.io/crates/ifchange)
-[![npm](https://img.shields.io/npm/v/ifchange)](https://www.npmjs.com/package/ifchange)
+[![npm](https://img.shields.io/npm/v/@slnc/ifchange)](https://www.npmjs.com/package/@slnc/ifchange)
 [![PyPI](https://img.shields.io/pypi/v/ifchange)](https://pypi.org/project/ifchange/)
 
 **Lint for cross-file dependencies.** Rename an env var in your deploy config, forget the code that reads it? `ifchange` catches it in the diff. 128 file extensions, 50+ languages. Robust and fast.
@@ -25,7 +25,7 @@ Rust implementation of Google's IfThisThenThat (IFTTT) linting pattern. TypeScri
 ```bash
 curl -fsSL https://raw.githubusercontent.com/slnc/ifchange/main/install.sh | sh
 cargo install ifchange        # Rust / crates.io
-npm install -g ifchange       # Node.js / npm
+npm install -g @slnc/ifchange # Node.js / npm
 pip install ifchange          # Python / PyPI
 ```
 
