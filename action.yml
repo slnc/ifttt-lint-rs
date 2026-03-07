@@ -122,6 +122,14 @@ runs:
 
     - name: Run ifchange
       shell: bash
+      env:
+        INPUT_ARGS: ${{ inputs.args }}
       run: |
+        set -euo pipefail
         diff_file="${{ inputs.diff || steps.diff.outputs.path }}"
-        ifchange ${{ inputs.args }} "$diff_file"
+        args=()
+        if [[ -n "$INPUT_ARGS" ]]; then
+          # Split on shell whitespace without evaluating metacharacters.
+          read -r -a args <<< "$INPUT_ARGS"
+        fi
+        ifchange "${args[@]}" "$diff_file"
