@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772885338051,
+  "lastUpdate": 1772893341929,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -863,6 +863,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 60032792,
             "range": "± 654589",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "juan@juanalonso.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "distinct": true,
+          "id": "82c298977e072f7f353cca915ba4864ca4ac6139",
+          "message": "fix: use new-file coordinates for removal trigger check\n\nRemoved lines in a unified diff use old-file line numbers, but directive\npositions (if_line, then_line) use new-file coordinates. Merging both\ninto one list caused false positives when lines were removed before an\nIfChange block — their old-file numbers could overlap with the block's\nnew-file range.\n\nTrack removal positions in new-file coordinates (the gap where the\ndeletion occurred) and use a strict lower bound (> if_line) for removals\nvs inclusive (>= if_line) for additions.",
+          "timestamp": "2026-03-07T15:18:16+01:00",
+          "tree_id": "e9a64ea00b773491d7f54858fc78cd48a6e80385",
+          "url": "https://github.com/slnc/ifchange/commit/82c298977e072f7f353cca915ba4864ca4ac6139"
+        },
+        "date": 1772893341524,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 3251611,
+            "range": "± 42024",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7523599,
+            "range": "± 383622",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 39678745,
+            "range": "± 755596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 58774818,
+            "range": "± 952303",
             "unit": "ns/iter"
           }
         ]
