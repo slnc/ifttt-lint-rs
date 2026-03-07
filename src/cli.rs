@@ -9,7 +9,7 @@ use std::sync::Mutex;
 
 use crate::diff::parse_changed_lines;
 use crate::directive::{parse_directives_from_content, validate_directive_uniqueness};
-use crate::engine::lint_diff;
+use crate::engine::{find_repo_root, lint_diff};
 
 static COLOR_ENABLED: AtomicBool = AtomicBool::new(false);
 
@@ -103,7 +103,7 @@ pub struct Cli {
     pub no_lint: bool,
 }
 
-pub fn run(cli: Cli) -> i32 {
+pub fn run(mut cli: Cli) -> i32 {
     setup_color();
 
     if cli.no_scan && cli.no_lint {
@@ -116,6 +116,44 @@ pub fn run(cli: Cli) -> i32 {
 
     let debug = cli.debug;
     let verbose = cli.verbose || debug;
+
+    // Resolve file arguments to absolute paths before changing directory.
+    // Use canonicalize for existing paths, fall back to manual join with CWD.
+    if let Some(ref path) = cli.diff_file {
+        if path != "-" {
+            let abs = std::fs::canonicalize(path).unwrap_or_else(|_| {
+                std::env::current_dir()
+                    .map(|cwd| cwd.join(path))
+                    .unwrap_or_else(|_| std::path::PathBuf::from(path))
+            });
+            cli.diff_file = Some(abs.to_string_lossy().to_string());
+        }
+    }
+    if let Some(ref dir) = cli.scan {
+        let abs = std::fs::canonicalize(dir).unwrap_or_else(|_| {
+            std::env::current_dir()
+                .map(|cwd| cwd.join(dir))
+                .unwrap_or_else(|_| std::path::PathBuf::from(dir))
+        });
+        cli.scan = Some(abs.to_string_lossy().to_string());
+    }
+
+    // Change to repo root so that repo-absolute paths (leading '/') resolve correctly.
+    let cwd = std::env::current_dir().ok();
+    if let Some(ref cwd) = cwd {
+        if let Some(root) = find_repo_root(cwd) {
+            if verbose {
+                if root == *cwd {
+                    eprintln!("{}", dim("repo root: ."));
+                } else {
+                    eprintln!("{}", dim(&format!("repo root: {}", root.display())));
+                }
+            }
+            if root != *cwd {
+                let _ = std::env::set_current_dir(&root);
+            }
+        }
+    }
 
     if cli.jobs > 0 {
         rayon::ThreadPoolBuilder::new()
