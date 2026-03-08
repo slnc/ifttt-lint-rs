@@ -136,19 +136,21 @@ fn verbose_shows_repo_root_dot_when_running_at_root() {
 #[test]
 fn verbose_shows_repo_root_path_when_running_in_subdir() {
     let dir = TempDir::new().unwrap();
-    fs::create_dir_all(dir.path().join(".git")).unwrap();
-    fs::create_dir_all(dir.path().join("nested")).unwrap();
+    // Canonicalize to resolve symlinks (e.g. /var -> /private/var on macOS)
+    let canon = dir.path().canonicalize().unwrap();
+    fs::create_dir_all(canon.join(".git")).unwrap();
+    fs::create_dir_all(canon.join("nested")).unwrap();
     let tmp = tempfile::NamedTempFile::new().unwrap();
     fs::write(tmp.path(), "").unwrap();
     let output = Command::new(binary_path())
         .args(["-v", &tmp.path().to_string_lossy()])
-        .current_dir(dir.path().join("nested"))
+        .current_dir(canon.join("nested"))
         .output()
         .unwrap();
     assert_eq!(output.status.code().unwrap(), 0);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains(&format!("repo root: {}", dir.path().display())),
+        stderr.contains(&format!("repo root: {}", canon.display())),
         "verbose should print absolute repo root from subdirectory, stderr: {}",
         stderr
     );
