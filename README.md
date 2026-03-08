@@ -143,7 +143,7 @@ env:
 
 ### Absolute paths (repo-root-relative)
 
-A leading `/` resolves from the repo root, not the filesystem root. This works regardless of where you run `ifchange` within the repo. The repo root is detected by walking up from CWD looking for `.git`, `.hg`, `.jj`, `.svn`, `.pijul`, or `.fossil`:
+A leading `/` resolves from the repo root, not the filesystem root. This works regardless of where you run `ifchange` within the repo. The repo root is detected by walking up from CWD looking for `.git`, `.hg`, `.jj`, `.svn`, `.pijul`, `.fslckout`, or `_FOSSIL_`:
 
 ```yaml
 # deploy/app.yml (anywhere in the repo)

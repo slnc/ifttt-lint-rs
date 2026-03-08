@@ -56,7 +56,7 @@ Multi-line array (each line in its own comment):
 | `/src/config.py` | Repo root | `src/config.py` |
 | `#label` | Same file | `deploy/app.yml#label` |
 
-A leading `/` means **repo-root-relative**, not filesystem-absolute. `ifchange` detects the repo root by walking up from CWD looking for `.git`, `.hg`, `.jj`, `.svn`, `.pijul`, or `.fossil`. `.` and `..` components are normalized.
+A leading `/` means **repo-root-relative**, not filesystem-absolute. `ifchange` detects the repo root by walking up from CWD looking for `.git`, `.hg`, `.jj`, `.svn`, `.pijul`, `.fslckout`, or `_FOSSIL_`. `.` and `..` components are normalized.
 
 ## LINT.Label / LINT.EndLabel
 

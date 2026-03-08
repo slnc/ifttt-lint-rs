@@ -97,7 +97,7 @@ jobs:
 
   commitlint:
     name: Commitlint
-    if: ${{ github.event_name == 'pull_request' && contains(fromJSON('["opened","edited","synchronized","reopened"]'), github.event.action) }}
+    if: ${{ github.event_name == 'pull_request' && contains(fromJSON('["opened","edited","synchronize","reopened"]'), github.event.action) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

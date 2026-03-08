@@ -139,8 +139,9 @@ pub fn run(mut cli: Cli) -> i32 {
     }
 
     // Change to repo root so that repo-absolute paths (leading '/') resolve correctly.
-    let cwd = std::env::current_dir().ok();
-    if let Some(ref cwd) = cwd {
+    // Save the original CWD so we can restore it before returning.
+    let original_cwd = std::env::current_dir().ok();
+    if let Some(ref cwd) = original_cwd {
         if let Some(root) = find_repo_root(cwd) {
             if verbose {
                 if root == *cwd {
@@ -150,11 +151,30 @@ pub fn run(mut cli: Cli) -> i32 {
                 }
             }
             if root != *cwd {
-                let _ = std::env::set_current_dir(&root);
+                if let Err(err) = std::env::set_current_dir(&root) {
+                    eprintln!(
+                        "{} changing to repo root {}: {}",
+                        red("Error:"),
+                        root.display(),
+                        err
+                    );
+                    return 2;
+                }
             }
         }
     }
 
+    let exit_code = run_inner(cli, verbose, debug);
+
+    // Restore original working directory so callers are not affected.
+    if let Some(ref cwd) = original_cwd {
+        let _ = std::env::set_current_dir(cwd);
+    }
+
+    exit_code
+}
+
+fn run_inner(cli: Cli, verbose: bool, debug: bool) -> i32 {
     if cli.jobs > 0 {
         rayon::ThreadPoolBuilder::new()
             .num_threads(cli.jobs)

@@ -1,7 +1,15 @@
 use std::path::Path;
 
 /// SCM marker directories/files to detect repo root.
-const SCM_MARKERS: &[&str] = &[".git", ".hg", ".jj", ".svn", ".pijul", ".fossil"];
+const SCM_MARKERS: &[&str] = &[
+    ".git",
+    ".hg",
+    ".jj",
+    ".svn",
+    ".pijul",
+    ".fslckout",
+    "_FOSSIL_",
+];
 
 /// Walk up from `start` looking for a known SCM marker (directory or file).
 /// Returns the repo root directory, or `None` if not found.
@@ -41,6 +49,8 @@ pub(super) fn resolve_target_path(source_file: &str, target_name: &str) -> Strin
     }
     if let Some(stripped) = target_name.strip_prefix('/') {
         // Treat leading slash as repo-root-relative, not filesystem-absolute.
+        // Strip any additional leading slashes (e.g. "//src/api.py").
+        let stripped = stripped.trim_start_matches('/');
         return normalize_path_str(stripped);
     }
     let source_dir = Path::new(source_file)
@@ -128,11 +138,11 @@ mod tests {
 
     #[test]
     fn resolve_absolute_double_slash() {
-        // "//src//api.py" strips one "/" -> "/src//api.py" which normalize treats as absolute
-        // This is a malformed path; normalization preserves the leading slash.
-        // In practice this doesn't happen, but we verify it doesn't panic.
-        let result = resolve_target_path("sub/a.py", "//src//api.py");
-        assert!(result.contains("src/api.py"));
+        // "//src//api.py" should strip all leading slashes and normalize.
+        assert_eq!(
+            resolve_target_path("sub/a.py", "//src//api.py"),
+            "src/api.py"
+        );
     }
 
     #[test]
@@ -171,14 +181,20 @@ mod tests {
     }
 
     #[test]
-    fn find_repo_root_returns_none_when_no_git() {
+    fn find_repo_root_returns_none_when_no_scm() {
         let tmp = tempfile::TempDir::new().unwrap();
         let dir = tmp.path().join("norepo/deep");
         std::fs::create_dir_all(&dir).unwrap();
-        // There may be a .git above tmp, so we check the result is at or above tmp
-        // Actually, in CI/test environments we can't guarantee no .git above.
-        // Just verify it doesn't panic.
-        let _ = find_repo_root(&dir);
+        let result = find_repo_root(&dir);
+        // If a result is found, it must be outside our temp directory (an ancestor
+        // SCM root on the host). Verify we never falsely detect one inside tmp.
+        if let Some(ref root) = result {
+            assert!(
+                !root.starts_with(tmp.path()),
+                "unexpectedly found SCM root inside isolated temp dir: {:?}",
+                root
+            );
+        }
     }
 
     #[test]
@@ -218,11 +234,20 @@ mod tests {
     }
 
     #[test]
-    fn find_repo_root_finds_fossil_file() {
+    fn find_repo_root_finds_fslckout_file() {
         let tmp = tempfile::TempDir::new().unwrap();
         let repo = tmp.path().join("fossilrepo");
         std::fs::create_dir_all(repo.join("src")).unwrap();
-        std::fs::write(repo.join(".fossil"), "checkout db").unwrap();
+        std::fs::write(repo.join(".fslckout"), "checkout db").unwrap();
+        assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
+    }
+
+    #[test]
+    fn find_repo_root_finds_fossil_underscore_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let repo = tmp.path().join("fossilrepo2");
+        std::fs::create_dir_all(repo.join("src")).unwrap();
+        std::fs::write(repo.join("_FOSSIL_"), "checkout db").unwrap();
         assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
     }
 
