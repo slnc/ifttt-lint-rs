@@ -181,20 +181,31 @@ mod tests {
     }
 
     #[test]
+    fn find_repo_root_from_file_path_uses_parent_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(repo.join(".git")).unwrap();
+        std::fs::create_dir_all(repo.join("src")).unwrap();
+        let file = repo.join("src/main.py");
+        std::fs::write(&file, "x = 1\n").unwrap();
+        assert_eq!(find_repo_root(&file), Some(repo));
+    }
+
+    #[test]
+    fn find_repo_root_accepts_relative_start() {
+        let root = find_repo_root(std::path::Path::new("."));
+        assert!(
+            root.is_some(),
+            "expected to discover repo root from relative path start"
+        );
+    }
+
+    #[test]
     fn find_repo_root_returns_none_when_no_scm() {
         let tmp = tempfile::TempDir::new().unwrap();
         let dir = tmp.path().join("norepo/deep");
         std::fs::create_dir_all(&dir).unwrap();
-        let result = find_repo_root(&dir);
-        // If a result is found, it must be outside our temp directory (an ancestor
-        // SCM root on the host). Verify we never falsely detect one inside tmp.
-        if let Some(ref root) = result {
-            assert!(
-                !root.starts_with(tmp.path()),
-                "unexpectedly found SCM root inside isolated temp dir: {:?}",
-                root
-            );
-        }
+        assert_eq!(find_repo_root(&dir), None);
     }
 
     #[test]
