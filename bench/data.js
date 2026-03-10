@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773171985085,
+  "lastUpdate": 1773172436191,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1631,6 +1631,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 59491307,
             "range": "± 744165",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "264827662+slnc-renovate-ci[bot]@users.noreply.github.com",
+            "name": "slnc-renovate-ci[bot]",
+            "username": "slnc-renovate-ci[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "090cf317299ac466cefbf34713cf7ef48d2e216b",
+          "message": "deps: update dependency node to v24 (#23)",
+          "timestamp": "2026-03-10T19:49:51Z",
+          "tree_id": "df08c26265bab654aa3694cbd0c1c07634f97248",
+          "url": "https://github.com/slnc/ifchange/commit/090cf317299ac466cefbf34713cf7ef48d2e216b"
+        },
+        "date": 1773172435730,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 3314496,
+            "range": "± 94944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7368615,
+            "range": "± 268549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 38377184,
+            "range": "± 1073141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 59239888,
+            "range": "± 653138",
             "unit": "ns/iter"
           }
         ]
