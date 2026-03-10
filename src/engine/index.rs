@@ -6,6 +6,11 @@ use crate::directive::{parse_file_directives, validate_directive_uniqueness};
 use crate::engine::resolve::{resolve_target_path, split_target_label};
 use crate::model::{Directive, FileChanges, LineRange};
 
+/// Resolve a repo-relative path to a filesystem path for reading.
+fn fs_path(repo_root: &Path, relative: &str) -> String {
+    repo_root.join(relative).to_string_lossy().to_string()
+}
+
 /// Per-file changed line data using new-file coordinates only.
 #[derive(Debug)]
 pub(super) struct ChangedLines {
@@ -50,8 +55,11 @@ pub(super) fn build_changed_lines_map(
         .collect()
 }
 
-pub(super) fn index_changed_file(file: &str) -> Result<ChangedFileOutcome, String> {
-    let directives = parse_file_directives(file).map_err(|e| e.to_string())?;
+pub(super) fn index_changed_file(
+    repo_root: &Path,
+    file: &str,
+) -> Result<ChangedFileOutcome, String> {
+    let directives = parse_file_directives(&fs_path(repo_root, file)).map_err(|e| e.to_string())?;
     let uniqueness_errors = validate_directive_uniqueness(&directives, file);
     let (pairs, orphan_then, orphan_if) = build_pairs(file, &directives);
 
@@ -66,12 +74,13 @@ pub(super) fn index_changed_file(file: &str) -> Result<ChangedFileOutcome, Strin
     })
 }
 
-pub(super) fn index_target_file(file: &str) -> TargetLoad {
-    if !Path::new(file).exists() {
+pub(super) fn index_target_file(repo_root: &Path, file: &str) -> TargetLoad {
+    let full_path = fs_path(repo_root, file);
+    if !Path::new(&full_path).exists() {
         return TargetLoad::MissingOrInvalid;
     }
 
-    let directives = match parse_file_directives(file) {
+    let directives = match parse_file_directives(&full_path) {
         Ok(ds) => ds,
         Err(_) => return TargetLoad::MissingOrInvalid,
     };

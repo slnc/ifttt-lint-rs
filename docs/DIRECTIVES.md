@@ -28,8 +28,10 @@ LINT.IfChange(my-label)          # labeled, unquoted
 All accepted formats:
 
 ```text
-LINT.ThenChange(other.py)                           # single target
+LINT.ThenChange(other.py)                           # single target (relative to source file)
 LINT.ThenChange("other.py#label")                   # with label reference
+LINT.ThenChange(/src/config.py)                     # absolute: repo-root-relative
+LINT.ThenChange("/src/config.py#label")             # absolute with label
 LINT.ThenChange(#label)                             # self-reference (same file)
 LINT.ThenChange("a.py", "b.py")                     # comma-separated
 LINT.ThenChange(["a.ts", "config.py#db", "c.sql"])  # array syntax
@@ -44,6 +46,17 @@ Multi-line array (each line in its own comment):
 //   "schema.sql",
 // ])
 ```
+
+## Path Resolution
+
+| Syntax | Resolves from | Example (source: `deploy/app.yml`) |
+|--------|--------------|-------------------------------------|
+| `other.py` | Source file's directory | `deploy/other.py` |
+| `../src/config.py` | Source file's directory | `src/config.py` |
+| `/src/config.py` | Repo root | `src/config.py` |
+| `#label` | Same file | `deploy/app.yml#label` |
+
+A leading `/` means **repo-root-relative**, not filesystem-absolute. `ifchange` detects the repo root by walking up from CWD looking for `.git`, `.hg`, `.jj`, `.svn`, `.pijul`, `.fslckout`, or `_FOSSIL_`. `.` and `..` components are normalized.
 
 ## LINT.Label / LINT.EndLabel
 

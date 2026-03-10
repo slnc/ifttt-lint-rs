@@ -47,12 +47,13 @@ fn generate_16kloc_diff_case() -> (TempDir, String) {
 }
 
 fn bench_lint_latency_16kloc(c: &mut Criterion) {
-    let (_dir, diff) = generate_16kloc_diff_case();
+    let (dir, diff) = generate_16kloc_diff_case();
     let ignore: Vec<String> = Vec::new();
+    let root = dir.path().to_path_buf();
 
     c.bench_function("lint_latency_16kloc_diff", |b| {
         b.iter(|| {
-            let result = lint_diff(&diff, false, false, &ignore);
+            let result = lint_diff(&diff, false, false, &ignore, &root);
             assert_eq!(result.exit_code, 0);
         });
     });

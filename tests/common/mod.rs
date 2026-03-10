@@ -79,6 +79,54 @@ pub fn lint_case(
     run_lint(&diff, args)
 }
 
+/// Create a diff using repo-root-relative paths (no dir prefix).
+/// Use with `run_lint_in_repo` for testing absolute path resolution.
+pub fn make_diff_relative(changes: &[(&str, &str)]) -> String {
+    let mut diff_lines = Vec::new();
+    for (file, hunk) in changes {
+        diff_lines.push(format!("--- a/{}", file));
+        diff_lines.push(format!("+++ b/{}", file));
+        diff_lines.push(hunk.to_string());
+    }
+    diff_lines.join("\n")
+}
+
+/// Run the lint binary from within a fake git repo directory.
+/// Creates `.git` dir in the temp dir so repo-root detection works,
+/// then runs the binary with CWD set to that directory.
+pub fn run_lint_in_repo(dir: &Path, diff: &str, args: &[&str]) -> (i32, String, String) {
+    // Ensure .git directory exists so repo root detection works
+    let git_dir = dir.join(".git");
+    if !git_dir.exists() {
+        fs::create_dir_all(&git_dir).unwrap();
+    }
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), diff).unwrap();
+    let output = Command::new(binary_path())
+        .args(args)
+        .arg(tmp.path())
+        .current_dir(dir)
+        .output()
+        .unwrap();
+    let code = output.status.code().unwrap_or(-1);
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    (code, stdout, stderr)
+}
+
+/// Like `lint_case` but runs inside a fake git repo with repo-root-relative diff paths.
+/// Use this for testing absolute path resolution in ThenChange directives.
+pub fn lint_case_repo(
+    files: &[(&str, &str)],
+    changes: &[(&str, &str)],
+    args: &[&str],
+) -> (i32, String, String) {
+    let dir = TempDir::new().unwrap();
+    write_files(dir.path(), files);
+    let diff = make_diff_relative(changes);
+    run_lint_in_repo(dir.path(), &diff, args)
+}
+
 pub fn run_scan(dir: &Path, args: &[&str]) -> (i32, String, String) {
     let output = Command::new(binary_path())
         .args(args)

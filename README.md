@@ -141,6 +141,20 @@ env:
 # ])
 ```
 
+### Absolute paths (repo-root-relative)
+
+A leading `/` resolves from the repo root, not the filesystem root. This works regardless of where you run `ifchange` within the repo. The repo root is detected by walking up from CWD looking for `.git`, `.hg`, `.jj`, `.svn`, `.pijul`, `.fslckout`, or `_FOSSIL_`:
+
+```yaml
+# deploy/app.yml (anywhere in the repo)
+# LINT.IfChange
+env:
+  DATABASE_URL: postgres://prod:5432/myapp
+# LINT.ThenChange(/src/config.py#env)
+```
+
+`/src/config.py` resolves to `<repo-root>/src/config.py`. Without the leading `/`, paths are relative to the source file's directory.
+
 ### Self-references
 
 Point to a label in the same file with `#label` (no filename):
@@ -207,7 +221,7 @@ Wall-clock time to lint a 30k-line diff or scan all directives in a synthetic 50
 | Mode | Rust | TypeScript | Speedup |
 |------|-----:|----------:|---------:|
 | **Lint** | **~17 ms** | 714 ms | **~42x** |
-| **Scan** | **~33 ms** | 387 ms | **~12x** |
+| **Scan** | **~34 ms** | 387 ms | **~12x** |
 
 ## Versioning
 

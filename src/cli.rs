@@ -9,7 +9,7 @@ use std::sync::Mutex;
 
 use crate::diff::parse_changed_lines;
 use crate::directive::{parse_directives_from_content, validate_directive_uniqueness};
-use crate::engine::lint_diff;
+use crate::engine::{find_repo_root, lint_diff};
 
 static COLOR_ENABLED: AtomicBool = AtomicBool::new(false);
 
@@ -117,6 +117,28 @@ pub fn run(cli: Cli) -> i32 {
     let debug = cli.debug;
     let verbose = cli.verbose || debug;
 
+    // Discover repo root for resolving repo-relative paths.
+    let cwd = std::env::current_dir().ok();
+    let repo_root = cwd.as_ref().and_then(|c| find_repo_root(c));
+
+    if verbose {
+        if let Some(ref root) = repo_root {
+            if cwd.as_ref() == Some(root) {
+                eprintln!("{}", dim("repo root: ."));
+            } else {
+                eprintln!("{}", dim(&format!("repo root: {}", root.display())));
+            }
+        }
+    }
+
+    let root = repo_root
+        .or(cwd)
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    run_inner(cli, verbose, debug, &root)
+}
+
+fn run_inner(cli: Cli, verbose: bool, debug: bool, repo_root: &std::path::Path) -> i32 {
     if cli.jobs > 0 {
         rayon::ThreadPoolBuilder::new()
             .num_threads(cli.jobs)
@@ -188,7 +210,7 @@ pub fn run(cli: Cli) -> i32 {
             }
         }
 
-        let result = lint_diff(&diff_text, verbose, debug, &cli.ignore);
+        let result = lint_diff(&diff_text, verbose, debug, &cli.ignore, repo_root);
 
         lint_errors = result.messages.len();
 

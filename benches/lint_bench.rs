@@ -54,24 +54,26 @@ fn generate_perf_files(total: usize) -> (TempDir, Vec<String>, String) {
 }
 
 fn bench_lint_5000(c: &mut Criterion) {
-    let (_dir, _files, diff) = generate_perf_files(5000);
+    let (dir, _files, diff) = generate_perf_files(5000);
     let ignore: Vec<String> = Vec::new();
+    let root = dir.path().to_path_buf();
 
     c.bench_function("lint_5000_files", |b| {
         b.iter(|| {
-            let result = lint_diff(&diff, false, false, &ignore);
+            let result = lint_diff(&diff, false, false, &ignore, &root);
             assert_eq!(result.exit_code, 0);
         });
     });
 }
 
 fn bench_lint_1000(c: &mut Criterion) {
-    let (_dir, _files, diff) = generate_perf_files(1000);
+    let (dir, _files, diff) = generate_perf_files(1000);
     let ignore: Vec<String> = Vec::new();
+    let root = dir.path().to_path_buf();
 
     c.bench_function("lint_1000_files", |b| {
         b.iter(|| {
-            let result = lint_diff(&diff, false, false, &ignore);
+            let result = lint_diff(&diff, false, false, &ignore, &root);
             assert_eq!(result.exit_code, 0);
         });
     });

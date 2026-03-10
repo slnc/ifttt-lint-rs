@@ -17,6 +17,7 @@ pub fn lint_diff(
     verbose: bool,
     debug: bool,
     ignore_list: &[String],
+    repo_root: &Path,
 ) -> LintResult {
     let ignore_patterns = parse_ignore_list(ignore_list);
     let mut messages: Vec<String> = Vec::new();
@@ -41,7 +42,7 @@ pub fn lint_diff(
 
     let phase1: Vec<(String, Result<_, String>)> = changed_files
         .par_iter()
-        .map(|file| (file.clone(), index_changed_file(file)))
+        .map(|file| (file.clone(), index_changed_file(repo_root, file)))
         .collect();
 
     let mut file_indices: HashMap<String, FileIndex> = HashMap::new();
@@ -135,7 +136,7 @@ pub fn lint_diff(
 
     let phase2: Vec<(String, TargetLoad)> = uncached_targets
         .par_iter()
-        .map(|file| (file.to_string(), index_target_file(file)))
+        .map(|file| (file.to_string(), index_target_file(repo_root, file)))
         .collect();
 
     let mut unavailable_targets: HashSet<String> = HashSet::new();
@@ -229,7 +230,7 @@ pub fn lint_diff(
         let if_ctx = format_if_context(&p.file, p.if_label.as_deref(), p.if_line);
 
         if target_cl.is_none() {
-            if !Path::new(&p.then_target_path).exists() {
+            if !repo_root.join(&p.then_target_path).exists() {
                 continue;
             }
             messages.push(format!(

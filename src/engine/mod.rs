@@ -1,9 +1,10 @@
 mod ignore;
 mod index;
 pub mod lint;
-mod resolve;
+pub(crate) mod resolve;
 
 pub use lint::lint_diff;
+pub use resolve::find_repo_root;
 
 use std::collections::HashMap;
 
