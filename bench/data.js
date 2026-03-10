@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772911146113,
+  "lastUpdate": 1773171985085,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1583,6 +1583,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 62215986,
             "range": "± 2671256",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69429+slnc@users.noreply.github.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb485382ef859b87545c0a349df3a8d0fd01bce2",
+          "message": "feat: add repo-root-relative paths support in ThenChange (#21)\n\n* feat: repo-root-relative paths in ThenChange\n\n`ThenChange(/src/api.py)` didn't work — the leading `/` was treated as\nfilesystem-absolute, never matching any diff path.\n\n- Leading `/` in ThenChange targets now resolves from the repo root\n- CLI detects repo root (`.git`, `.hg`, `.jj`, `.svn`, `.pijul`, `.fossil`) and chdirs to it at startup\n- File args resolved to absolute paths before chdir to avoid breakage\n- Path traversal (`/../../etc/passwd`) clamped — can't escape repo root\n- Docs: new \"Absolute paths\" section in README, \"Path Resolution\" table in DIRECTIVES.md\n\n- [ ] `cargo test` — 16 new integration tests, 13 new unit tests\n- chdir at startup could affect plugins/hooks that depend on CWD\n\n* fix: address PR review comments\n\n## Why\nPR #21 had several correctness issues flagged by reviewers.\n\n## What\n- Restore original CWD after chdir to repo root in `cli::run`\n- Propagate `set_current_dir` failures instead of ignoring them\n- Fix Fossil SCM markers (`.fslckout`/`_FOSSIL_` instead of `.fossil`)\n- Strip all leading slashes in repo-relative paths (`//src` → `src`)\n- Fix `synchronize` typo in CI commitlint trigger\n- Strengthen test assertions\n\n* chore: commit unstaged changes\n\n* chore: commit remaining unstaged change\n\n* test: cover repo-root resolution branches\n\n* chore: loosen .githooks/commit-msg\n\n* test: fix macos canonicalization\n\n* test: fix repo root test on Windows\n\n## Why\n`std::fs::canonicalize` adds a `\\\\?\\` prefix on Windows that\n`current_dir()` does not, causing a path mismatch assertion failure.\n\n## What\n- Use `dunce::canonicalize` to resolve symlinks without the `\\\\?\\` prefix\n- Added `dunce` as a dev-dependency\n\n## Verify / Risk\n- [ ] CI passes on all platforms (linux, macos, windows)",
+          "timestamp": "2026-03-10T20:42:48+01:00",
+          "tree_id": "8280b09cab67f2e54c754fa1d22bcac8139fa69a",
+          "url": "https://github.com/slnc/ifchange/commit/bb485382ef859b87545c0a349df3a8d0fd01bce2"
+        },
+        "date": 1773171984473,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 3311790,
+            "range": "± 66243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7340097,
+            "range": "± 521449",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 39042537,
+            "range": "± 1382592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 59491307,
+            "range": "± 744165",
             "unit": "ns/iter"
           }
         ]
