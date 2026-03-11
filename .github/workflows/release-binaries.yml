@@ -13,9 +13,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  resolve-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Resolve tag name
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            TAG="$DISPATCH_TAG"
+          else
+            TAG="$REF_NAME"
+          fi
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
+            echo "::error::Could not resolve a valid release tag (got '$TAG')"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: resolve-tag
     name: build-${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TAG: ${{ needs.resolve-tag.outputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +93,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME}"
+          VERSION="${RELEASE_TAG}"
           NAME="ifchange-${VERSION}-${{ matrix.target }}"
           BIN="target/${{ matrix.target }}/release/ifchange"
           cp "$BIN" ifchange
@@ -78,7 +104,7 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' }}
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}"
+          $version = "${{ needs.resolve-tag.outputs.tag }}"
           $name = "ifchange-$version-${{ matrix.target }}"
           Copy-Item "target/${{ matrix.target }}/release/ifchange.exe" "ifchange.exe"
           Compress-Archive -Path "ifchange.exe" -DestinationPath "$name.zip"
@@ -87,7 +113,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ARTIFACT="ifchange-${{ github.ref_name }}-${{ matrix.target }}.${{ matrix.archive_ext }}"
+          ARTIFACT="ifchange-${{ needs.resolve-tag.outputs.tag }}-${{ matrix.target }}.${{ matrix.archive_ext }}"
           if command -v sha256sum &>/dev/null; then
             sha256sum "$ARTIFACT" > hash-${{ matrix.target }}.txt
           else
@@ -107,7 +133,7 @@ jobs:
         with:
           name: release-${{ matrix.target }}
           path: |
-            ifchange-${{ github.ref_name }}-${{ matrix.target }}.${{ matrix.archive_ext }}
+            ifchange-${{ needs.resolve-tag.outputs.tag }}-${{ matrix.target }}.${{ matrix.archive_ext }}
           if-no-files-found: error
           retention-days: 5
 
@@ -143,7 +169,7 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [resolve-tag, build]
     permissions:
       contents: write
       id-token: write
@@ -200,7 +226,7 @@ jobs:
       - name: Publish release assets
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.resolve-tag.outputs.tag }}
           generate_release_notes: false
           files: |
             dist/ifchange-*
@@ -210,9 +236,11 @@ jobs:
 
   update-action-tag:
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [resolve-tag, publish]
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ needs.resolve-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -224,20 +252,20 @@ jobs:
       - name: Move major version tag
         run: |
           set -euo pipefail
-          major="v${GITHUB_REF_NAME#v}"
+          major="v${RELEASE_TAG#v}"
           major="${major%%.*}"
-          git tag -fa "$major" -m "$major → $GITHUB_REF_NAME"
+          git tag -fa "$major" -m "$major → $RELEASE_TAG"
           git push origin "$major" --force
 
       - name: Move stable tag
         run: |
           set -euo pipefail
-          git tag -fa stable -m "stable → $GITHUB_REF_NAME"
+          git tag -fa stable -m "stable → $RELEASE_TAG"
           git push origin stable --force
 
   publish-crate:
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [resolve-tag, publish]
     permissions:
       id-token: write
     steps:
@@ -260,7 +288,9 @@ jobs:
 
   publish-npm:
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [resolve-tag, publish]
+    env:
+      RELEASE_TAG: ${{ needs.resolve-tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -273,7 +303,8 @@ jobs:
 
       - name: Set npm package version from tag
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG}"
+          VERSION="${VERSION#v}"
           cd npm
           npm version "$VERSION" --no-git-tag-version
 
@@ -284,9 +315,11 @@ jobs:
 
   publish-pypi:
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [resolve-tag, publish]
     permissions:
       id-token: write
+    env:
+      RELEASE_TAG: ${{ needs.resolve-tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -298,7 +331,8 @@ jobs:
 
       - name: Set pypi package version from tag
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG}"
+          VERSION="${VERSION#v}"
           cd pypi
           sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
 
