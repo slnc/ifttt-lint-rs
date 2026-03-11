@@ -114,6 +114,70 @@ fn verbose_output() {
 }
 
 #[test]
+fn verbose_shows_repo_root_dot_when_running_at_root() {
+    let dir = TempDir::new().unwrap();
+    fs::create_dir_all(dir.path().join(".git")).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "").unwrap();
+    let output = Command::new(binary_path())
+        .args(["-v", &tmp.path().to_string_lossy()])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code().unwrap(), 0);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("repo root: ."),
+        "verbose should print repo root shorthand at root, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn verbose_shows_repo_root_path_when_running_in_subdir() {
+    let dir = TempDir::new().unwrap();
+    // Canonicalize to resolve symlinks (e.g. /var -> /private/var on macOS).
+    // On Windows, canonicalize adds a \\?\ prefix that current_dir() doesn't,
+    // so strip it to match the binary's output.
+    let canon = dunce::canonicalize(dir.path()).unwrap();
+    fs::create_dir_all(canon.join(".git")).unwrap();
+    fs::create_dir_all(canon.join("nested")).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "").unwrap();
+    let output = Command::new(binary_path())
+        .args(["-v", &tmp.path().to_string_lossy()])
+        .current_dir(canon.join("nested"))
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code().unwrap(), 0);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(&format!("repo root: {}", canon.display())),
+        "verbose should print absolute repo root from subdirectory, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn verbose_with_no_repo_root_does_not_print_repo_root_line() {
+    let dir = TempDir::new().unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "").unwrap();
+    let output = Command::new(binary_path())
+        .args(["-v", &tmp.path().to_string_lossy()])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code().unwrap(), 0);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("repo root:"),
+        "should not print repo root line outside a detected repository, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
 fn verbose_shows_directive_pairs_and_summary() {
     let (code, _, stderr) = lint_case(
         &[

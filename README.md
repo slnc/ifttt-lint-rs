@@ -7,7 +7,7 @@
 [![Sigstore](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev/)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![crates.io](https://img.shields.io/crates/v/ifchange)](https://crates.io/crates/ifchange)
-[![npm](https://img.shields.io/npm/v/ifchange)](https://www.npmjs.com/package/ifchange)
+[![npm](https://img.shields.io/npm/v/@slnc/ifchange)](https://www.npmjs.com/package/@slnc/ifchange)
 [![PyPI](https://img.shields.io/pypi/v/ifchange)](https://pypi.org/project/ifchange/)
 
 **Lint for cross-file dependencies.** Rename an env var in your deploy config, forget the code that reads it? `ifchange` catches it in the diff. 128 file extensions, 50+ languages. Robust and fast.
@@ -25,7 +25,7 @@ Rust implementation of Google's IfThisThenThat (IFTTT) linting pattern. TypeScri
 ```bash
 curl -fsSL https://raw.githubusercontent.com/slnc/ifchange/main/install.sh | sh
 cargo install ifchange        # Rust / crates.io
-npm install -g ifchange       # Node.js / npm
+npm install -g @slnc/ifchange # Node.js / npm
 pip install ifchange          # Python / PyPI
 ```
 
@@ -141,6 +141,20 @@ env:
 # ])
 ```
 
+### Absolute paths (repo-root-relative)
+
+A leading `/` resolves from the repo root, not the filesystem root. This works regardless of where you run `ifchange` within the repo. The repo root is detected by walking up from CWD looking for `.git`, `.hg`, `.jj`, `.svn`, `.pijul`, `.fslckout`, or `_FOSSIL_`:
+
+```yaml
+# deploy/app.yml (anywhere in the repo)
+# LINT.IfChange
+env:
+  DATABASE_URL: postgres://prod:5432/myapp
+# LINT.ThenChange(/src/config.py#env)
+```
+
+`/src/config.py` resolves to `<repo-root>/src/config.py`. Without the leading `/`, paths are relative to the source file's directory.
+
 ### Self-references
 
 Point to a label in the same file with `#label` (no filename):
@@ -207,7 +221,7 @@ Wall-clock time to lint a 30k-line diff or scan all directives in a synthetic 50
 | Mode | Rust | TypeScript | Speedup |
 |------|-----:|----------:|---------:|
 | **Lint** | **~17 ms** | 714 ms | **~42x** |
-| **Scan** | **~33 ms** | 387 ms | **~12x** |
+| **Scan** | **~34 ms** | 387 ms | **~12x** |
 
 ## Versioning
 

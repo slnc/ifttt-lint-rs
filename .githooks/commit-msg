@@ -4,7 +4,7 @@ set -eu
 msg_file="$1"
 subject_line="$(head -n1 "$msg_file" | tr -d '\r')"
 
-if printf '%s' "$subject_line" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(!)?: .+'; then
+if printf '%s' "$subject_line" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(!)?: .+|^Merge .+|^Revert ".+"$|^(fixup|squash|amend)! .+'; then
   exit 0
 fi
 
@@ -22,6 +22,11 @@ Examples:
 
 Allowed types:
   feat, fix, docs, style, refactor, perf, test, build, ci, chore
+
+Also allowed:
+  Git automatic merge subjects (e.g. "Merge branch 'main'")
+  Git revert subjects (e.g. "Revert \"feat: add check mode\"")
+  Git autosquash subjects (e.g. "fixup! feat: add check mode")
 ERR
 
 exit 1
