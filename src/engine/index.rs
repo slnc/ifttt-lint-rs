@@ -16,8 +16,14 @@ fn fs_path(repo_root: &Path, relative: &str) -> String {
 pub(super) struct ChangedLines {
     /// New-file lines where additions occurred (exact positions).
     pub(super) addition_lines: Vec<usize>,
-    /// New-file lines where removals occurred (gap positions).
+    /// New-file lines where removals occurred (gap positions), sorted and deduped.
     pub(super) removal_lines: Vec<usize>,
+    /// How many raw removal lines map to each new-file gap position.
+    /// When multiple `-` lines appear consecutively they all map to the same
+    /// new-line number; this count lets boundary checks distinguish "only a
+    /// directive was removed" (count == 1) from "content was also removed"
+    /// (count > 1).
+    pub(super) removal_line_counts: HashMap<usize, usize>,
     /// Union of addition_lines and removal_lines, sorted and deduped.
     pub(super) all_lines: Vec<usize>,
 }
@@ -33,9 +39,13 @@ pub(super) fn build_changed_lines_map(
             addition_lines.sort_unstable();
             addition_lines.dedup();
 
-            let mut removal_lines: Vec<usize> = changes.removal_new_lines.iter().copied().collect();
+            let mut removal_line_counts: HashMap<usize, usize> = HashMap::new();
+            for &line in &changes.removal_new_lines {
+                *removal_line_counts.entry(line).or_insert(0) += 1;
+            }
+
+            let mut removal_lines: Vec<usize> = removal_line_counts.keys().copied().collect();
             removal_lines.sort_unstable();
-            removal_lines.dedup();
 
             let mut all_lines = Vec::with_capacity(addition_lines.len() + removal_lines.len());
             all_lines.extend(&addition_lines);
@@ -48,6 +58,7 @@ pub(super) fn build_changed_lines_map(
                 ChangedLines {
                     addition_lines,
                     removal_lines,
+                    removal_line_counts,
                     all_lines,
                 },
             )
@@ -218,7 +229,7 @@ mod tests {
                 added_lines: HashSet::from([2, 3]),
                 removed_lines: HashSet::from([3]),
                 addition_new_lines: HashSet::from([2, 3]),
-                removal_new_lines: HashSet::from([2]),
+                removal_new_lines: vec![2],
             },
         )]);
         let result = build_changed_lines_map(&map);

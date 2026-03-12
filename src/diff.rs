@@ -130,7 +130,7 @@ pub fn parse_changed_lines(diff_text: &str) -> HashMap<String, FileChanges> {
                 let mut added_lines: HashSet<usize> = HashSet::new();
                 let mut removed_lines: HashSet<usize> = HashSet::new();
                 let mut addition_new_lines: HashSet<usize> = HashSet::new();
-                let mut removal_new_lines: HashSet<usize> = HashSet::new();
+                let mut removal_new_lines: Vec<usize> = Vec::new();
 
                 while i < lines.len() {
                     let hunk_line = lines[i];
@@ -168,7 +168,7 @@ pub fn parse_changed_lines(diff_text: &str) -> HashMap<String, FileChanges> {
                                 new_line += 1;
                             } else if content_line.starts_with('-') {
                                 removed_lines.insert(old_line);
-                                removal_new_lines.insert(new_line);
+                                removal_new_lines.push(new_line);
                                 old_line += 1;
                             } else {
                                 // Context line (starts with ' ' or is empty for
@@ -195,7 +195,7 @@ pub fn parse_changed_lines(diff_text: &str) -> HashMap<String, FileChanges> {
                         added_lines: HashSet::new(),
                         removed_lines: HashSet::new(),
                         addition_new_lines: HashSet::new(),
-                        removal_new_lines: HashSet::new(),
+                        removal_new_lines: Vec::new(),
                     });
                 entry.added_lines.extend(added_lines);
                 entry.removed_lines.extend(removed_lines);

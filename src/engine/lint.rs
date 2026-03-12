@@ -210,19 +210,45 @@ pub fn lint_diff(
         // Removals use > if_line (a removal mapping to if_line was before
         // the block). Removals mapping to then_line are content deletions
         // above the ThenChange — UNLESS the ThenChange is also being
-        // replaced (addition at the same line), which is a directive edit.
+        // replaced (addition at the same line) AND only one removal maps
+        // to that position (just the directive itself). If multiple
+        // removals collapse onto then_line, at least one was content.
+        //
+        // Symmetrically, removals at if_line are normally excluded (they
+        // were before the block). But when the IfChange is being replaced
+        // AND more than one removal maps to if_line, the extra removals
+        // are content lines that were immediately after the old directive.
+        let if_line_replaced = source_changed.addition_lines.contains(&p.if_line);
         let then_line_replaced = source_changed.addition_lines.contains(&p.then_line);
+        let removal_count_at = |pos: usize| -> usize {
+            source_changed
+                .removal_line_counts
+                .get(&pos)
+                .copied()
+                .unwrap_or(0)
+        };
         let triggered = source_changed
             .addition_lines
             .iter()
             .any(|&line| line > p.if_line && line < p.then_line)
             || source_changed.removal_lines.iter().any(|&line| {
-                line > p.if_line
-                    && if line == p.then_line {
-                        !then_line_replaced
+                if line == p.if_line {
+                    // Removals at if_line are normally before the block.
+                    // But if the IfChange is being rewritten and more than
+                    // one removal collapsed here, extra ones are content.
+                    if_line_replaced && removal_count_at(line) > 1
+                } else if line == p.then_line {
+                    // A single removal at then_line when the directive is
+                    // being replaced is just the old ThenChange line.
+                    // Multiple removals mean content was also deleted.
+                    if then_line_replaced {
+                        removal_count_at(line) > 1
                     } else {
-                        line < p.then_line
+                        true
                     }
+                } else {
+                    line > p.if_line && line < p.then_line
+                }
             });
 
         if !triggered {

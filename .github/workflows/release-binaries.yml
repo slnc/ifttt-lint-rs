@@ -30,7 +30,7 @@ jobs:
           else
             TAG="$REF_NAME"
           fi
-          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Could not resolve a valid release tag (got '$TAG')"
             exit 1
           fi
@@ -104,7 +104,7 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' }}
         shell: pwsh
         run: |
-          $version = "${{ needs.resolve-tag.outputs.tag }}"
+          $version = $env:RELEASE_TAG
           $name = "ifchange-$version-${{ matrix.target }}"
           Copy-Item "target/${{ matrix.target }}/release/ifchange.exe" "ifchange.exe"
           Compress-Archive -Path "ifchange.exe" -DestinationPath "$name.zip"
@@ -113,7 +113,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ARTIFACT="ifchange-${{ needs.resolve-tag.outputs.tag }}-${{ matrix.target }}.${{ matrix.archive_ext }}"
+          ARTIFACT="ifchange-${RELEASE_TAG}-${{ matrix.target }}.${{ matrix.archive_ext }}"
           if command -v sha256sum &>/dev/null; then
             sha256sum "$ARTIFACT" > hash-${{ matrix.target }}.txt
           else

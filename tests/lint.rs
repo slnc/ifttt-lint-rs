@@ -984,6 +984,76 @@ fn thenchange_replaced_with_removal_at_same_position_no_error() {
     );
 }
 
+// ── Boundary collapse regression tests ──
+// When content lines are deleted alongside a directive rewrite, all removals
+// map to the same new-file line number.  The trigger check must still detect
+// the content deletion even though it shares a position with the directive.
+
+#[test]
+fn content_deleted_with_thenchange_rewrite_triggers() {
+    // Delete the only content line while rewriting ThenChange.
+    // Both removals collapse onto then_line; must still trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\n# LINT.ThenChange(\"new.py\")\n"),
+            ("new.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,3 +1,2 @@\n # LINT.IfChange\n-old_value\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"new.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "content deletion collapsing onto ThenChange rewrite should trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn content_deleted_with_ifchange_rewrite_triggers() {
+    // Delete the first content line while rewriting IfChange.
+    // Both removals collapse onto if_line; must still trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange(label)\n# LINT.ThenChange(\"t.py\")\n"),
+            ("t.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,3 +1,2 @@\n-# LINT.IfChange\n-old_value\n+# LINT.IfChange(label)\n # LINT.ThenChange(\"t.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "content deletion collapsing onto IfChange rewrite should trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn multiple_content_deleted_with_thenchange_rewrite_triggers() {
+    // Delete multiple content lines while rewriting ThenChange.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\n# LINT.ThenChange(\"new.py\")\n"),
+            ("new.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,4 +1,2 @@\n # LINT.IfChange\n-line_a\n-line_b\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"new.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "multiple content deletions with ThenChange rewrite should trigger, stderr: {}",
+        stderr
+    );
+}
+
 #[test]
 fn errors_go_to_stderr_not_stdout() {
     let (code, stdout, stderr) = lint_case(
