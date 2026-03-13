@@ -31,8 +31,12 @@ pub struct FileChanges {
     pub removed_lines: HashSet<usize>,
     /// New-file line numbers where additions occurred (same as added_lines).
     pub addition_new_lines: HashSet<usize>,
-    /// New-file line numbers where removals occurred.  See struct-level docs.
-    pub removal_new_lines: HashSet<usize>,
+    /// New-file line numbers and content for removals.  See struct-level docs.
+    /// Stored as a `Vec` of `(new_line, removed_text)` in hunk order so that
+    /// consecutive removals mapping to the same new-line position are preserved
+    /// as separate, ordered entries.  The ordering lets boundary checks
+    /// determine which side of a directive rewrite a deletion came from.
+    pub removal_new_lines: Vec<(usize, String)>,
 }
 
 /// Inclusive range of line numbers in a target file's labeled section.
