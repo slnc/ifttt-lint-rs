@@ -1054,6 +1054,57 @@ fn multiple_content_deleted_with_thenchange_rewrite_triggers() {
     );
 }
 
+// ── Regression: outside-of-block deletion + directive rewrite ──
+// CodeRabbit flagged that deletion before/after a block combined with a
+// directive rewrite could false-trigger because removal_line_counts
+// collapses both sides into one count.
+
+#[test]
+fn delete_before_block_with_ifchange_rewrite_no_trigger() {
+    // Delete a line BEFORE the block while rewriting IfChange.
+    // Both removals collapse onto if_line with count=2, but the
+    // deletions are outside the block — must NOT trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange(\"x\")\ncontent\n# LINT.ThenChange(\"t.py\")\n"),
+            ("t.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,4 +1,3 @@\n-before\n-# LINT.IfChange\n+# LINT.IfChange(\"x\")\n content\n # LINT.ThenChange(\"t.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "delete before block + IfChange rewrite should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn delete_after_block_with_thenchange_rewrite_no_trigger() {
+    // Delete a line AFTER the block while rewriting ThenChange.
+    // Both removals collapse onto then_line with count=2, but the
+    // deletions are outside the block — must NOT trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\ncontent\n# LINT.ThenChange(\"new.py\")\n"),
+            ("new.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,4 +1,3 @@\n # LINT.IfChange\n content\n-# LINT.ThenChange(\"old.py\")\n-after\n+# LINT.ThenChange(\"new.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "delete after block + ThenChange rewrite should not trigger, stderr: {}",
+        stderr
+    );
+}
+
 #[test]
 fn errors_go_to_stderr_not_stdout() {
     let (code, stdout, stderr) = lint_case(

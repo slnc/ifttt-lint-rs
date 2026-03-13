@@ -220,13 +220,6 @@ pub fn lint_diff(
         // are content lines that were immediately after the old directive.
         let if_line_replaced = source_changed.addition_lines.contains(&p.if_line);
         let then_line_replaced = source_changed.addition_lines.contains(&p.then_line);
-        let removal_count_at = |pos: usize| -> usize {
-            source_changed
-                .removal_line_counts
-                .get(&pos)
-                .copied()
-                .unwrap_or(0)
-        };
         let triggered = source_changed
             .addition_lines
             .iter()
@@ -234,15 +227,22 @@ pub fn lint_diff(
             || source_changed.removal_lines.iter().any(|&line| {
                 if line == p.if_line {
                     // Removals at if_line are normally before the block.
-                    // But if the IfChange is being rewritten and more than
-                    // one removal collapsed here, extra ones are content.
-                    if_line_replaced && removal_count_at(line) > 1
+                    // But if the IfChange is being rewritten and extra
+                    // removals collapsed here, some may be content from
+                    // inside the block (lines below the old IfChange).
+                    // Use ordered removal contents to check only the
+                    // correct side of the directive boundary.
+                    if_line_replaced
+                        && source_changed.removal_count_at(line) > 1
+                        && source_changed.has_content_removal_after_directive(line)
                 } else if line == p.then_line {
                     // A single removal at then_line when the directive is
                     // being replaced is just the old ThenChange line.
-                    // Multiple removals mean content was also deleted.
+                    // Multiple removals may include content from inside
+                    // the block (lines above the old ThenChange).
                     if then_line_replaced {
-                        removal_count_at(line) > 1
+                        source_changed.removal_count_at(line) > 1
+                            && source_changed.has_content_removal_before_directive(line)
                     } else {
                         true
                     }
