@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use super::{ChangedFileOutcome, FileIndex, Pair, TargetLoad};
-use crate::directive::{looks_like_directive, parse_file_directives, validate_directive_uniqueness};
+use crate::directive::{
+    looks_like_directive, parse_file_directives, validate_directive_uniqueness,
+};
 use crate::engine::resolve::{resolve_target_path, split_target_label};
 use crate::model::{Directive, FileChanges, LineRange};
 
@@ -31,9 +33,7 @@ pub(super) struct ChangedLines {
 impl ChangedLines {
     /// How many raw removal lines map to the given gap position.
     pub(super) fn removal_count_at(&self, pos: usize) -> usize {
-        self.removal_line_details
-            .get(&pos)
-            .map_or(0, |v| v.len())
+        self.removal_line_details.get(&pos).map_or(0, |v| v.len())
     }
 
     /// Were any non-directive lines removed on the **inside** of the block
@@ -49,9 +49,7 @@ impl ChangedLines {
             None => return false,
         };
         // Find the last directive in the sequence.
-        let last_directive_idx = details
-            .iter()
-            .rposition(|text| looks_like_directive(text));
+        let last_directive_idx = details.iter().rposition(|text| looks_like_directive(text));
         match last_directive_idx {
             Some(idx) => {
                 // Any non-directive line after the last directive is content
@@ -81,9 +79,7 @@ impl ChangedLines {
             Some(d) => d,
             None => return false,
         };
-        let first_directive_idx = details
-            .iter()
-            .position(|text| looks_like_directive(text));
+        let first_directive_idx = details.iter().position(|text| looks_like_directive(text));
         match first_directive_idx {
             Some(idx) => {
                 // Any non-directive line before the first directive is content
