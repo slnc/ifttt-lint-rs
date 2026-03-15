@@ -1,6 +1,6 @@
 [package]
 name = "ifchange"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "A fast linter for enforcing conditional change directives in source code"
 license = "MIT"
