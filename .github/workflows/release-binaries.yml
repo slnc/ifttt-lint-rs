@@ -351,6 +351,9 @@ jobs:
           cd pypi
           sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
 
+      - name: Copy README into pypi package
+        run: cp README.md pypi/README.md
+
       - name: Build package
         run: |
           pip install build
