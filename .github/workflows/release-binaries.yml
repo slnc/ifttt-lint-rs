@@ -274,6 +274,9 @@ jobs:
           cd npm
           npm version "$VERSION" --no-git-tag-version
 
+      - name: Copy README into npm package
+        run: cp README.md npm/README.md
+
       - name: Publish to npm
         run: npm publish ./npm --access public
         env:
