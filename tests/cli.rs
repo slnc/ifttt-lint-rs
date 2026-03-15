@@ -26,13 +26,13 @@ fn ignore_glob() {
         &[
             (
                 "file.json",
-                "// LINT.IfChange\n// LINT.ThenChange(\"nochange.ts\")\n",
+                "// LINT.IfChange\nconst v = 2;\n// LINT.ThenChange(\"nochange.ts\")\n",
             ),
             ("nochange.ts", "// dummy\n"),
         ],
     );
     let diff = make_diff(dir.path(), &[
-        ("file.json", "@@ -1,2 +1,2 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed\n // LINT.ThenChange(\"nochange.ts\")"),
+        ("file.json", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\"nochange.ts\")"),
     ]);
     // Without ignore: should error
     let (code1, _, _) = run_lint(&diff, &[]);

@@ -59,11 +59,11 @@ fn labeled_change_ok() {
 fn labeled_change_missing() {
     let (code, _, stderr) = lint_case(
         &[
-            ("file1.ts", "// LINT.IfChange\n// LINT.ThenChange(\"file2.ts#label1\")\n"),
+            ("file1.ts", "// LINT.IfChange\nconst x = 2;\n// LINT.ThenChange(\"file2.ts#label1\")\n"),
             ("file2.ts", "// header\n// LINT.Label(\"label1\")\nconsole.log(1);\n// LINT.EndLabel\n// footer\n"),
         ],
         &[
-            ("file1.ts", "@@ -1,2 +1,2 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed\n // LINT.ThenChange(\"file2.ts#label1\")"),
+            ("file1.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n-const x = 1;\n+const x = 2;\n // LINT.ThenChange(\"file2.ts#label1\")"),
             ("file2.ts", "@@ -1,5 +1,5 @@\n // header\n // LINT.Label(\"label1\")\n console.log(1);\n-// LINT.EndLabel\n+// LINT.EndLabel // changed\n // footer"),
         ],
         &[],
@@ -138,8 +138,8 @@ fn cross_reference_detects_inside_changes() {
 #[test]
 fn self_reference_with_label() {
     let (code, _, stderr) = lint_case(
-        &[("file1.ts", "// LINT.Label(\"label1\")\nconsole.log(1);\n// LINT.EndLabel\n// LINT.IfChange\n// LINT.ThenChange(\"#label1\")\n")],
-        &[("file1.ts", "@@ -4,4 +4,4 @@\n-// LINT.IfChange\n+// LINT.IfChange // changed")],
+        &[("file1.ts", "// LINT.Label(\"label1\")\nconsole.log(1);\n// LINT.EndLabel\n// LINT.IfChange\nconst x = 2;\n// LINT.ThenChange(\"#label1\")\n")],
+        &[("file1.ts", "@@ -4,3 +4,3 @@\n // LINT.IfChange\n-const x = 1;\n+const x = 2;\n // LINT.ThenChange(\"#label1\")")],
         &[],
     );
     assert_eq!(
@@ -204,10 +204,10 @@ fn deleted_files_ignored() {
 fn ifchange_label_in_error_context() {
     let (code, _, stderr) = lint_case(
         &[
-            ("file1.ts", "// LINT.IfChange('g')\n// LINT.ThenChange(\"file2.ts\")\n"),
+            ("file1.ts", "// LINT.IfChange('g')\nconst x = 2;\n// LINT.ThenChange(\"file2.ts\")\n"),
             ("file2.ts", "// dummy\n"),
         ],
-        &[("file1.ts", "@@ -1,2 +1,2 @@\n-// LINT.IfChange('g')\n+// LINT.IfChange('g') // changed\n // LINT.ThenChange(\"file2.ts\")")],
+        &[("file1.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange('g')\n-const x = 1;\n+const x = 2;\n // LINT.ThenChange(\"file2.ts\")")],
         &[],
     );
     assert_eq!(code, 1);
@@ -751,6 +751,356 @@ fn addition_before_block_with_removal_inside() {
     assert_eq!(
         code, 1,
         "removal inside block should trigger despite addition before block, stderr: {}",
+        stderr
+    );
+}
+
+// ── Directive-only changes should NOT trigger co-change checks ──
+
+#[test]
+fn only_thenchange_path_changed_no_error() {
+    // The original bug: updating ThenChange target path should not trigger
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"target.ts\")\n"),
+            ("target.ts", "const v = 1;\n"),
+        ],
+        &[("src.ts", "@@ -1,3 +1,3 @@\n // LINT.IfChange\n const v = 1;\n-// LINT.ThenChange(\"old-target.ts\")\n+// LINT.ThenChange(\"target.ts\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "changing only ThenChange target path should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn only_ifchange_label_changed_no_error() {
+    // Adding a label to IfChange should not trigger
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange('new-label')\nVALUE = 1\n# LINT.ThenChange(\"target.py\")\n"),
+            ("target.py", "VALUE = 1\n"),
+        ],
+        &[("src.py", "@@ -1,3 +1,3 @@\n-# LINT.IfChange\n+# LINT.IfChange('new-label')\n VALUE = 1\n # LINT.ThenChange(\"target.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "adding label to IfChange should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn both_directives_changed_no_content_no_error() {
+    // Both IfChange and ThenChange changed, but content between them is untouched
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange('renamed')\nVALUE = 1\n# LINT.ThenChange(\"target.py\")\n"),
+            ("target.py", "VALUE = 1\n"),
+        ],
+        &[("src.py", "@@ -1,3 +1,3 @@\n-# LINT.IfChange('old')\n+# LINT.IfChange('renamed')\n VALUE = 1\n-# LINT.ThenChange(\"old-target.py\")\n+# LINT.ThenChange(\"target.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "changing both directives without content should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn content_and_directive_changed_still_errors() {
+    // Content changed AND directive changed — should still enforce co-change
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange('label')\nVALUE = 2\n# LINT.ThenChange(\"target.py\")\n"),
+            ("target.py", "VALUE = 1\n"),
+        ],
+        &[("src.py", "@@ -1,3 +1,3 @@\n-# LINT.IfChange\n+# LINT.IfChange('label')\n-VALUE = 1\n+VALUE = 2\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"target.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "content change with directive change should still trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn empty_block_directive_change_no_error() {
+    // Adjacent IfChange/ThenChange with nothing between them
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange('x')\n# LINT.ThenChange(\"target.py\")\n"),
+            ("target.py", "VALUE = 1\n"),
+        ],
+        &[("src.py", "@@ -1,2 +1,2 @@\n-# LINT.IfChange\n+# LINT.IfChange('x')\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"target.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "empty block with only directive changes should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn directive_change_does_not_affect_adjacent_pair() {
+    // Two pairs in same file; changing directive of first should not affect second
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange('a')\nalpha = 1\n# LINT.ThenChange(\"ta.py\")\n# LINT.IfChange('b')\nbeta = 1\n# LINT.ThenChange(\"tb.py\")\n"),
+            ("ta.py", "a = 1\n"),
+            ("tb.py", "b = 1\n"),
+        ],
+        &[("src.py", "@@ -1,6 +1,6 @@\n # LINT.IfChange('a')\n alpha = 1\n-# LINT.ThenChange(\"old-ta.py\")\n+# LINT.ThenChange(\"ta.py\")\n # LINT.IfChange('b')\n beta = 1\n # LINT.ThenChange(\"tb.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "directive change in pair A should not trigger pair B, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn ifchange_line1_directive_only_change_no_error() {
+    // IfChange on line 1 of file, only directive changed
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange('added-label')\nVALUE = 1\n# LINT.ThenChange(\"t.py\")\n"),
+            ("t.py", "x = 1\n"),
+        ],
+        &[("src.py", "@@ -1,3 +1,3 @@\n-# LINT.IfChange\n+# LINT.IfChange('added-label')\n VALUE = 1\n # LINT.ThenChange(\"t.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "IfChange at line 1 directive-only change should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn thenchange_last_line_directive_only_change_no_error() {
+    // ThenChange is the last line of the file
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"t.py\")\n"),
+            ("t.py", "x = 1\n"),
+        ],
+        &[("src.py", "@@ -1,3 +1,3 @@\n # LINT.IfChange\n VALUE = 1\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"t.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "ThenChange at last line directive-only change should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn content_and_thenchange_changed_new_target_also_changed() {
+    // Content changed AND ThenChange target updated, new target also changed → PASS
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\nVALUE = 2\n# LINT.ThenChange(\"new-target.py\")\n"),
+            ("new-target.py", "MIRROR = 2\n"),
+        ],
+        &[
+            ("src.py", "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n-# LINT.ThenChange(\"old-target.py\")\n+# LINT.ThenChange(\"new-target.py\")"),
+            ("new-target.py", "@@ -1 +1 @@\n-MIRROR = 1\n+MIRROR = 2"),
+        ],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "content + directive change with new target also changed should pass, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn content_and_thenchange_changed_new_target_not_changed() {
+    // Content changed AND ThenChange target updated, but new target NOT changed → ERROR
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\nVALUE = 2\n# LINT.ThenChange(\"new-target.py\")\n"),
+            ("new-target.py", "MIRROR = 1\n"),
+        ],
+        &[("src.py", "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n-# LINT.ThenChange(\"old-target.py\")\n+# LINT.ThenChange(\"new-target.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "content change with new target not changed should error, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn content_added_to_previously_empty_block_triggers() {
+    // Adding content to a previously empty block (IfChange immediately above ThenChange)
+    let (code, _, stderr) = lint_case(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nnew_content = 1\n# LINT.ThenChange(\"t.py\")\n",
+            ),
+            ("t.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,2 +1,3 @@\n # LINT.IfChange\n+new_content = 1\n # LINT.ThenChange(\"t.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "adding content to empty block should trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn thenchange_replaced_with_removal_at_same_position_no_error() {
+    // When ThenChange is replaced, both a removal and addition land on
+    // then_line. The removal should not falsely trigger the co-change check.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"t.py\")\n"),
+            ("t.py", "x = 1\n"),
+        ],
+        &[("src.py", "@@ -1,3 +1,3 @@\n # LINT.IfChange\n VALUE = 1\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"t.py\")")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "ThenChange replacement should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+// ── Boundary collapse regression tests ──
+// When content lines are deleted alongside a directive rewrite, all removals
+// map to the same new-file line number.  The trigger check must still detect
+// the content deletion even though it shares a position with the directive.
+
+#[test]
+fn content_deleted_with_thenchange_rewrite_triggers() {
+    // Delete the only content line while rewriting ThenChange.
+    // Both removals collapse onto then_line; must still trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\n# LINT.ThenChange(\"new.py\")\n"),
+            ("new.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,3 +1,2 @@\n # LINT.IfChange\n-old_value\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"new.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "content deletion collapsing onto ThenChange rewrite should trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn content_deleted_with_ifchange_rewrite_triggers() {
+    // Delete the first content line while rewriting IfChange.
+    // Both removals collapse onto if_line; must still trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange(label)\n# LINT.ThenChange(\"t.py\")\n"),
+            ("t.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,3 +1,2 @@\n-# LINT.IfChange\n-old_value\n+# LINT.IfChange(label)\n # LINT.ThenChange(\"t.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "content deletion collapsing onto IfChange rewrite should trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn multiple_content_deleted_with_thenchange_rewrite_triggers() {
+    // Delete multiple content lines while rewriting ThenChange.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\n# LINT.ThenChange(\"new.py\")\n"),
+            ("new.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,4 +1,2 @@\n # LINT.IfChange\n-line_a\n-line_b\n-# LINT.ThenChange(\"old.py\")\n+# LINT.ThenChange(\"new.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "multiple content deletions with ThenChange rewrite should trigger, stderr: {}",
+        stderr
+    );
+}
+
+// ── Regression: outside-of-block deletion + directive rewrite ──
+// CodeRabbit flagged that deletion before/after a block combined with a
+// directive rewrite could false-trigger because removal_line_counts
+// collapses both sides into one count.
+
+#[test]
+fn delete_before_block_with_ifchange_rewrite_no_trigger() {
+    // Delete a line BEFORE the block while rewriting IfChange.
+    // Both removals collapse onto if_line with count=2, but the
+    // deletions are outside the block — must NOT trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange(\"x\")\ncontent\n# LINT.ThenChange(\"t.py\")\n"),
+            ("t.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,4 +1,3 @@\n-before\n-# LINT.IfChange\n+# LINT.IfChange(\"x\")\n content\n # LINT.ThenChange(\"t.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "delete before block + IfChange rewrite should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn delete_after_block_with_thenchange_rewrite_no_trigger() {
+    // Delete a line AFTER the block while rewriting ThenChange.
+    // Both removals collapse onto then_line with count=2, but the
+    // deletions are outside the block — must NOT trigger.
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.py", "# LINT.IfChange\ncontent\n# LINT.ThenChange(\"new.py\")\n"),
+            ("new.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,4 +1,3 @@\n # LINT.IfChange\n content\n-# LINT.ThenChange(\"old.py\")\n-after\n+# LINT.ThenChange(\"new.py\")",
+        )],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "delete after block + ThenChange rewrite should not trigger, stderr: {}",
         stderr
     );
 }

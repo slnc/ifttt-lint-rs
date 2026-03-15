@@ -201,17 +201,55 @@ pub fn lint_diff(
             None => continue,
         };
 
-        // Added lines use inclusive range (they have exact new-file positions).
-        // Removal-only lines use a tighter range (> if_line) because a removal
-        // that maps to if_line was actually before the block, not inside it.
+        // Only lines strictly between the directives count as content.
+        // The IfChange and ThenChange lines themselves are metadata — changing
+        // them (e.g. updating a target path or adding a label) should not
+        // trigger the co-change requirement.
+        //
+        // Additions on the directive lines are always metadata edits.
+        // Removals use > if_line (a removal mapping to if_line was before
+        // the block). Removals mapping to then_line are content deletions
+        // above the ThenChange — UNLESS the ThenChange is also being
+        // replaced (addition at the same line) AND only one removal maps
+        // to that position (just the directive itself). If multiple
+        // removals collapse onto then_line, at least one was content.
+        //
+        // Symmetrically, removals at if_line are normally excluded (they
+        // were before the block). But when the IfChange is being replaced
+        // AND more than one removal maps to if_line, the extra removals
+        // are content lines that were immediately after the old directive.
+        let if_line_replaced = source_changed.addition_lines.contains(&p.if_line);
+        let then_line_replaced = source_changed.addition_lines.contains(&p.then_line);
         let triggered = source_changed
             .addition_lines
             .iter()
-            .any(|&line| line >= p.if_line && line <= p.then_line)
-            || source_changed
-                .removal_lines
-                .iter()
-                .any(|&line| line > p.if_line && line <= p.then_line);
+            .any(|&line| line > p.if_line && line < p.then_line)
+            || source_changed.removal_lines.iter().any(|&line| {
+                if line == p.if_line {
+                    // Removals at if_line are normally before the block.
+                    // But if the IfChange is being rewritten and extra
+                    // removals collapsed here, some may be content from
+                    // inside the block (lines below the old IfChange).
+                    // Use ordered removal contents to check only the
+                    // correct side of the directive boundary.
+                    if_line_replaced
+                        && source_changed.removal_count_at(line) > 1
+                        && source_changed.has_content_removal_after_directive(line)
+                } else if line == p.then_line {
+                    // A single removal at then_line when the directive is
+                    // being replaced is just the old ThenChange line.
+                    // Multiple removals may include content from inside
+                    // the block (lines above the old ThenChange).
+                    if then_line_replaced {
+                        source_changed.removal_count_at(line) > 1
+                            && source_changed.has_content_removal_before_directive(line)
+                    } else {
+                        true
+                    }
+                } else {
+                    line > p.if_line && line < p.then_line
+                }
+            });
 
         if !triggered {
             continue;

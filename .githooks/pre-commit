@@ -3,12 +3,7 @@ set -eu
 
 # Only run Rust checks if .rs files are staged
 if git diff --cached --name-only --diff-filter=ACMR | grep -q '\.rs$'; then
-  if command -v just >/dev/null 2>&1; then
-    just check_fix
-  else
-    cargo fmt --all
-    cargo clippy --quiet --all-targets --all-features -- -D warnings
-  fi
+  just check_fix
 fi
 
 if [ "${IFCHANGE_DISABLED:-}" != "1" ] && [ "${IFCHANGE_DISABLED:-}" != "true" ]; then
