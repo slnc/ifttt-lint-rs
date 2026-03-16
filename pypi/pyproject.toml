@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "ifchange"
 version = "0.2.1" # x-release-please-version
 description = "A fast linter for enforcing conditional change directives in source code"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.8"
 classifiers = [

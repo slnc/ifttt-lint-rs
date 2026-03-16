@@ -318,6 +318,9 @@ jobs:
           cd npm
           npm version "$VERSION" --no-git-tag-version --allow-same-version
 
+      - name: Copy README into npm package
+        run: cp README.md npm/README.md
+
       - name: Publish to npm
         run: npm publish ./npm --access public
         env:
@@ -347,6 +350,9 @@ jobs:
           VERSION="${VERSION#v}"
           cd pypi
           sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+
+      - name: Copy README into pypi package
+        run: cp README.md pypi/README.md
 
       - name: Build package
         run: |
