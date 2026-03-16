@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773571193821,
+  "lastUpdate": 1773667450068,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1919,6 +1919,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 61216269,
             "range": "± 302888",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69429+slnc@users.noreply.github.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55686c86234007bf1be0e8c6fe21fee596a49006",
+          "message": "docs: include README in PyPI and npm packages (#27)\n\n## Why\nPyPI and npm package pages are empty because neither package includes\nthe project README.\n\n## What\n- Add `readme` field to `pypi/pyproject.toml` pointing to root README\n- Copy root README into `npm/` before publish in CI workflow\n\n## Verify\n- [ ] Next release publishes with README visible on both package pages",
+          "timestamp": "2026-03-16T14:20:44+01:00",
+          "tree_id": "cdd752f7223aefeec7ffac7f4587c5f50f99e020",
+          "url": "https://github.com/slnc/ifchange/commit/55686c86234007bf1be0e8c6fe21fee596a49006"
+        },
+        "date": 1773667449053,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 4299772,
+            "range": "± 75473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7505021,
+            "range": "± 271347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 37050463,
+            "range": "± 1463108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 58224789,
+            "range": "± 481172",
             "unit": "ns/iter"
           }
         ]
