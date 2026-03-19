@@ -132,10 +132,7 @@ pub fn parse_directives_from_content(
             // ThenChange
             if starts_with_ci(line_text.trim(), "LINT.ThenChange") {
                 let trimmed = line_text.trim();
-                if starts_with_ci(trimmed, "LINT.ThenChange")
-                    && trimmed.contains('(')
-                    && !trimmed.contains(')')
-                {
+                if trimmed.contains('(') && !trimmed.contains(')') {
                     // Multi-line: accumulate until ')'
                     let mut accumulated = line_text.to_string();
                     let directive_line = current_line;
@@ -174,7 +171,9 @@ pub fn parse_directives_from_content(
                             next_ci += 1;
                         }
                         if found_close {
-                            comment_idx = next_ci;
+                            // next_ci points past the last consumed comment.
+                            // Subtract 1 because the outer loop does comment_idx += 1.
+                            comment_idx = next_ci - 1;
                         }
                     }
 
@@ -202,6 +201,38 @@ pub fn parse_directives_from_content(
                             break;
                         }
                         continue;
+                    }
+                    // Fallback: multi-line without brackets (e.g., quoted targets separated by commas)
+                    if let Some(caps) = pats.then_change_fallback.captures(&accumulated) {
+                        let raw = caps.get(1).unwrap().as_str().trim();
+                        let targets = parse_array_targets(raw);
+                        if !targets.is_empty() {
+                            for target in targets {
+                                directives.push(Directive::ThenChange {
+                                    line: directive_line,
+                                    target,
+                                });
+                            }
+                            if found_close && comment_lines.len() == 1 {
+                                break;
+                            }
+                            continue;
+                        }
+                        // Single unquoted target fallback (mirrors single-line behavior)
+                        let target = raw
+                            .trim_matches(|c| c == '\'' || c == '"')
+                            .trim()
+                            .to_string();
+                        if !target.is_empty() {
+                            directives.push(Directive::ThenChange {
+                                line: directive_line,
+                                target,
+                            });
+                            if found_close && comment_lines.len() == 1 {
+                                break;
+                            }
+                            continue;
+                        }
                     }
                     return Err(DirectiveParseError::MalformedDirective {
                         directive: "LINT.ThenChange",
@@ -876,5 +907,128 @@ mod bug_tests {
                 "failed for variant: {variant}"
             );
         }
+    }
+
+    // ── Multi-line ThenChange without brackets ──
+
+    #[test]
+    fn thenchange_multiline_no_brackets_double_quoted() {
+        let content = "\
+// LINT.ThenChange(
+//   \"a.ts\",
+//   \"b.ts\",
+// )
+";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_hash_comments() {
+        let content = "\
+# LINT.ThenChange(
+#   'a.py',
+#   'b.py',
+# )
+";
+        let directives = parse_directives_from_content(content, "x.yml").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.py", "b.py"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_dash_comments() {
+        let content = "\
+-- LINT.ThenChange(
+--   'a.sql',
+--   'b.sql',
+-- )
+";
+        let directives = parse_directives_from_content(content, "x.sql").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.sql", "b.sql"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_close_on_last_target_line() {
+        let content = "\
+// LINT.ThenChange(
+//   'a.ts',
+//   'b.ts')
+";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_no_trailing_comma() {
+        let content = "\
+// LINT.ThenChange(
+//   'a.ts',
+//   'b.ts'
+// )
+";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_directive_after_block_not_skipped() {
+        let content = "\
+// LINT.IfChange
+// LINT.ThenChange(
+//   'a.ts',
+// )
+// LINT.IfChange
+// LINT.ThenChange(
+//   'b.ts',
+// )
+";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        // Verify all directives are found (no skipped IfChange)
+        assert_eq!(
+            directives.len(),
+            4,
+            "expected 2 IfChange + 2 ThenChange, got: {directives:?}"
+        );
+        assert!(matches!(&directives[0], Directive::IfChange { .. }));
+        assert!(matches!(&directives[1], Directive::ThenChange { target, .. } if target == "a.ts"));
+        assert!(matches!(&directives[2], Directive::IfChange { .. }));
+        assert!(matches!(&directives[3], Directive::ThenChange { target, .. } if target == "b.ts"));
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_block_comment() {
+        let content = "/*\nLINT.ThenChange(\n\"a.ts\",\n\"b.ts\",\n)\n*/\n";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_unclosed_errors() {
+        let content = "\
+// LINT.ThenChange(
+//   'a.ts',
+//   'b.ts',
+";
+        let err = parse_directives_from_content(content, "x.ts").unwrap_err();
+        assert!(err.to_string().contains("Malformed LINT.ThenChange"));
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_unquoted_single_target() {
+        // Bug: multi-line ThenChange(\nfoo.txt\n) with unquoted single target should work
+        let content = "\
+// LINT.ThenChange(
+//   foo.txt
+// )
+";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["foo.txt"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_no_brackets_unquoted_single_target_block_comment() {
+        let content = "/*\nLINT.ThenChange(\nfoo.txt\n)\n*/\n";
+        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["foo.txt"]);
     }
 }

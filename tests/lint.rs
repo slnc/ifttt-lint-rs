@@ -1119,3 +1119,87 @@ fn errors_go_to_stderr_not_stdout() {
     assert!(stdout.is_empty(), "stdout should be empty, got: {}", stdout);
     assert!(stderr.contains("unchanged"), "stderr: {}", stderr);
 }
+
+// ── Multi-line ThenChange without brackets (integration) ──
+
+#[test]
+fn multiline_thenchange_no_brackets_all_targets_changed() {
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   'a.ts',\n//   'b.ts',\n// )\n"),
+            ("a.ts", "const a = 1;\n"),
+            ("b.ts", "const b = 1;\n"),
+        ],
+        &[
+            ("src.ts", "@@ -1,6 +1,6 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\n //   'a.ts',\n //   'b.ts',\n // )"),
+            ("a.ts", "@@ -1 +1 @@\n-const a = 1;\n+const a = 2;"),
+            ("b.ts", "@@ -1 +1 @@\n-const b = 1;\n+const b = 2;"),
+        ],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "all targets changed should pass, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn multiline_thenchange_no_brackets_one_target_missing() {
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   'a.ts',\n//   'b.ts',\n// )\n"),
+            ("a.ts", "const a = 1;\n"),
+            ("b.ts", "const b = 1;\n"),
+        ],
+        &[
+            ("src.ts", "@@ -1,6 +1,6 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\n //   'a.ts',\n //   'b.ts',\n // )"),
+            ("a.ts", "@@ -1 +1 @@\n-const a = 1;\n+const a = 2;"),
+        ],
+        &[],
+    );
+    assert_eq!(
+        code, 1,
+        "missing target b.ts should fail, stderr: {}",
+        stderr
+    );
+    assert!(stderr.contains("unchanged"), "stderr: {}", stderr);
+}
+
+#[test]
+fn multiline_thenchange_no_brackets_directive_only_change_no_trigger() {
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   'new-a.ts',\n//   'new-b.ts',\n// )\n"),
+            ("new-a.ts", "const a = 1;\n"),
+            ("new-b.ts", "const b = 1;\n"),
+        ],
+        &[("src.ts", "@@ -1,6 +1,6 @@\n // LINT.IfChange\n const v = 1;\n-// LINT.ThenChange(\n-//   'old-a.ts',\n-//   'old-b.ts',\n-// )\n+// LINT.ThenChange(\n+//   'new-a.ts',\n+//   'new-b.ts',\n+// )")],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "directive-only change should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn multiline_thenchange_no_brackets_with_label_targets() {
+    let (code, _, stderr) = lint_case(
+        &[
+            ("src.ts", "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   'target.ts#section',\n// )\n"),
+            ("target.ts", "// LINT.Label(\"section\")\nconst t = 1;\n// LINT.EndLabel\n"),
+        ],
+        &[
+            ("src.ts", "@@ -1,5 +1,5 @@\n // LINT.IfChange\n-const v = 1;\n+const v = 2;\n // LINT.ThenChange(\n //   'target.ts#section',\n // )"),
+            ("target.ts", "@@ -1,3 +1,3 @@\n // LINT.Label(\"section\")\n-const t = 1;\n+const t = 2;\n // LINT.EndLabel"),
+        ],
+        &[],
+    );
+    assert_eq!(
+        code, 0,
+        "label target in multi-line should work, stderr: {}",
+        stderr
+    );
+}
