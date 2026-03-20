@@ -15,5 +15,9 @@
   ],
   "cpu": [
     "x64"
+  ],
+  "preferUnplugged": true,
+  "files": [
+    "ifchange.exe"
   ]
 }

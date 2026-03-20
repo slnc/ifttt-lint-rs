@@ -18,5 +18,9 @@
   ],
   "libc": [
     "glibc"
+  ],
+  "preferUnplugged": true,
+  "files": [
+    "ifchange"
   ]
 }

@@ -29,7 +29,6 @@ if (!binPath) {
   let resolvedPath;
 
   if (require("path").isAbsolute(binPath)) {
-    // IFCHANGE_BINARY with absolute path: use directly
     resolvedPath = binPath;
   } else {
     try {
@@ -37,11 +36,12 @@ if (!binPath) {
     } catch {
       console.error(
         `The platform-specific package for ${platform}-${arch} is not installed.\n` +
-          "This usually means your package manager did not install the optional dependency.\n\n" +
+          "This usually means your package manager did not install the optional dependency.\n" +
+          "On Alpine/musl systems, only glibc binaries are provided.\n\n" +
           "Try reinstalling with:\n" +
           "  npm install @slnc/ifchange\n\n" +
-          "Or install the platform package directly:\n" +
-          `  npm install @slnc/ifchange-${platform}-${arch}`
+          "Or install from source:\n" +
+          "  cargo install ifchange"
       );
       process.exitCode = 1;
     }
@@ -57,6 +57,10 @@ if (!binPath) {
       throw result.error;
     }
 
-    process.exitCode = result.status;
+    if (result.signal) {
+      process.kill(process.pid, result.signal);
+    } else {
+      process.exitCode = result.status;
+    }
   }
 }

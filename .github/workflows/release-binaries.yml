@@ -372,15 +372,52 @@ jobs:
             cp README.md "$dir/README.md"
           done
 
-      - name: Publish platform packages
+      - name: Publish platform packages (idempotent)
         run: |
           set -euo pipefail
           for dir in npm/platforms/*/; do
-            echo "Publishing $(basename "$dir")..."
-            npm publish "$dir" --access public
+            pkg="$(basename "$dir")"
+            echo "Publishing $pkg..."
+            output="$(npm publish "$dir" --access public 2>&1)" && true
+            status=$?
+            echo "$output"
+            if [ $status -ne 0 ]; then
+              if echo "$output" | grep -q "previously published\|cannot publish over"; then
+                echo "$pkg already published, skipping"
+              else
+                echo "::error::Failed to publish $pkg"
+                exit 1
+              fi
+            fi
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Wait for platform packages on registry
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          PACKAGES=(
+            "@slnc/ifchange-linux-x64"
+            "@slnc/ifchange-linux-arm64"
+            "@slnc/ifchange-darwin-x64"
+            "@slnc/ifchange-darwin-arm64"
+            "@slnc/ifchange-win32-x64"
+          )
+          for pkg in "${PACKAGES[@]}"; do
+            echo "Waiting for $pkg@$VERSION..."
+            for i in $(seq 1 30); do
+              if npm view "$pkg@$VERSION" version 2>/dev/null | grep -q "$VERSION"; then
+                echo "$pkg@$VERSION is available"
+                break
+              fi
+              if [ "$i" = "30" ]; then
+                echo "::error::Timed out waiting for $pkg@$VERSION on registry"
+                exit 1
+              fi
+              sleep 10
+            done
+          done
 
       - name: Publish main package
         run: npm publish ./npm --access public

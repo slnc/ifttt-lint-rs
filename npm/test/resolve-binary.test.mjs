@@ -15,11 +15,11 @@ const NPM_DIR = join(__dirname, "..");
 const PLATFORMS_DIR = join(NPM_DIR, "platforms");
 
 const EXPECTED_PLATFORMS = [
-  { dir: "ifchange-linux-x64", os: "linux", cpu: "x64", name: "@slnc/ifchange-linux-x64" },
-  { dir: "ifchange-linux-arm64", os: "linux", cpu: "arm64", name: "@slnc/ifchange-linux-arm64" },
-  { dir: "ifchange-darwin-x64", os: "darwin", cpu: "x64", name: "@slnc/ifchange-darwin-x64" },
-  { dir: "ifchange-darwin-arm64", os: "darwin", cpu: "arm64", name: "@slnc/ifchange-darwin-arm64" },
-  { dir: "ifchange-win32-x64", os: "win32", cpu: "x64", name: "@slnc/ifchange-win32-x64" },
+  { dir: "ifchange-linux-x64", os: "linux", cpu: "x64", name: "@slnc/ifchange-linux-x64", files: ["ifchange"] },
+  { dir: "ifchange-linux-arm64", os: "linux", cpu: "arm64", name: "@slnc/ifchange-linux-arm64", files: ["ifchange"] },
+  { dir: "ifchange-darwin-x64", os: "darwin", cpu: "x64", name: "@slnc/ifchange-darwin-x64", files: ["ifchange"] },
+  { dir: "ifchange-darwin-arm64", os: "darwin", cpu: "arm64", name: "@slnc/ifchange-darwin-arm64", files: ["ifchange"] },
+  { dir: "ifchange-win32-x64", os: "win32", cpu: "x64", name: "@slnc/ifchange-win32-x64", files: ["ifchange.exe"] },
 ];
 
 function readJson(path) {
@@ -95,6 +95,14 @@ describe("package.json consistency", () => {
       it("has repository", () => {
         assert.equal(platPkg.repository?.url, "https://github.com/slnc/ifchange");
       });
+
+      it("has explicit files field with binary", () => {
+        assert.deepEqual(platPkg.files, p.files, `${p.name} should declare files: ${JSON.stringify(p.files)}`);
+      });
+
+      it("has preferUnplugged for Yarn PnP compatibility", () => {
+        assert.equal(platPkg.preferUnplugged, true);
+      });
     });
   }
 });
@@ -123,6 +131,17 @@ describe("bin/ifchange resolver script", () => {
   it("supports IFCHANGE_BINARY env override", () => {
     const content = readFileSync(binPath, "utf8");
     assert.ok(content.includes("IFCHANGE_BINARY"), "should support IFCHANGE_BINARY env");
+  });
+
+  it("forwards signals from child process", () => {
+    const content = readFileSync(binPath, "utf8");
+    assert.ok(content.includes("result.signal"), "should check for child signal");
+    assert.ok(content.includes("process.kill(process.pid"), "should re-raise signal");
+  });
+
+  it("mentions musl/Alpine in error message", () => {
+    const content = readFileSync(binPath, "utf8");
+    assert.ok(content.includes("musl"), "error message should mention musl for Alpine users");
   });
 });
 
