@@ -9,6 +9,56 @@
           "path": "npm/package.json",
           "jsonpath": "$.version"
         },
+        {
+          "type": "json",
+          "path": "npm/package.json",
+          "jsonpath": "$.optionalDependencies['@slnc/ifchange-linux-x64']"
+        },
+        {
+          "type": "json",
+          "path": "npm/package.json",
+          "jsonpath": "$.optionalDependencies['@slnc/ifchange-linux-arm64']"
+        },
+        {
+          "type": "json",
+          "path": "npm/package.json",
+          "jsonpath": "$.optionalDependencies['@slnc/ifchange-darwin-x64']"
+        },
+        {
+          "type": "json",
+          "path": "npm/package.json",
+          "jsonpath": "$.optionalDependencies['@slnc/ifchange-darwin-arm64']"
+        },
+        {
+          "type": "json",
+          "path": "npm/package.json",
+          "jsonpath": "$.optionalDependencies['@slnc/ifchange-win32-x64']"
+        },
+        {
+          "type": "json",
+          "path": "npm/platforms/ifchange-linux-x64/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "npm/platforms/ifchange-linux-arm64/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "npm/platforms/ifchange-darwin-x64/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "npm/platforms/ifchange-darwin-arm64/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "npm/platforms/ifchange-win32-x64/package.json",
+          "jsonpath": "$.version"
+        },
         "pypi/pyproject.toml",
         "pypi/ifchange/__init__.py"
       ],

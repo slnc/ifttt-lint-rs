@@ -10,11 +10,7 @@
   "bin": {
     "ifchange": "bin/ifchange"
   },
-  "scripts": {
-    "postinstall": "node install.js"
-  },
   "files": [
-    "install.js",
     "bin"
   ],
   "engines": {
@@ -24,5 +20,12 @@
     "linux",
     "darwin",
     "win32"
-  ]
+  ],
+  "optionalDependencies": {
+    "@slnc/ifchange-linux-x64": "0.2.1",
+    "@slnc/ifchange-linux-arm64": "0.2.1",
+    "@slnc/ifchange-darwin-x64": "0.2.1",
+    "@slnc/ifchange-darwin-arm64": "0.2.1",
+    "@slnc/ifchange-win32-x64": "0.2.1"
+  }
 }

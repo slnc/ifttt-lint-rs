@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+"use strict";
+
+const { platform, arch, env } = process;
+
+const PLATFORMS = {
+  win32: {
+    x64: "@slnc/ifchange-win32-x64/ifchange.exe",
+  },
+  darwin: {
+    x64: "@slnc/ifchange-darwin-x64/ifchange",
+    arm64: "@slnc/ifchange-darwin-arm64/ifchange",
+  },
+  linux: {
+    x64: "@slnc/ifchange-linux-x64/ifchange",
+    arm64: "@slnc/ifchange-linux-arm64/ifchange",
+  },
+};
+
+const binPath = env.IFCHANGE_BINARY || PLATFORMS?.[platform]?.[arch];
+
+if (!binPath) {
+  console.error(
+    `@slnc/ifchange does not ship a prebuilt binary for your platform: ${platform}-${arch}\n` +
+      "You can install from source: cargo install ifchange"
+  );
+  process.exitCode = 1;
+} else {
+  let resolvedPath;
+
+  if (require("path").isAbsolute(binPath)) {
+    // IFCHANGE_BINARY with absolute path: use directly
+    resolvedPath = binPath;
+  } else {
+    try {
+      resolvedPath = require.resolve(binPath);
+    } catch {
+      console.error(
+        `The platform-specific package for ${platform}-${arch} is not installed.\n` +
+          "This usually means your package manager did not install the optional dependency.\n\n" +
+          "Try reinstalling with:\n" +
+          "  npm install @slnc/ifchange\n\n" +
+          "Or install the platform package directly:\n" +
+          `  npm install @slnc/ifchange-${platform}-${arch}`
+      );
+      process.exitCode = 1;
+    }
+  }
+
+  if (resolvedPath) {
+    const result = require("child_process").spawnSync(resolvedPath, process.argv.slice(2), {
+      shell: false,
+      stdio: "inherit",
+    });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    process.exitCode = result.status;
+  }
+}

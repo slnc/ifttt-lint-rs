@@ -1,4 +1,8 @@
 /target
-/npm/bin/
 /pypi/ifchange/bin/
 /pypi/dist/
+
+# Platform package binaries are placed by CI during release, not committed
+/npm/platforms/*/ifchange
+/npm/platforms/*/ifchange.exe
+/npm/platforms/*/README.md

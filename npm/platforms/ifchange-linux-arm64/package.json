@@ -1,0 +1,22 @@
+{
+  "name": "@slnc/ifchange-linux-arm64",
+  "version": "0.2.1",
+  "description": "ifchange binary for linux-arm64",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slnc/ifchange"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}
