@@ -156,19 +156,22 @@ describe("current platform resolution (integration)", () => {
     // When no platform package is installed, the script should exit with code 1
     // and print a helpful error, NOT crash with an unhandled exception
     try {
-      execFileSync("node", [join(NPM_DIR, "bin", "ifchange"), "--version"], {
+      const stdout = execFileSync("node", [join(NPM_DIR, "bin", "ifchange"), "--version"], {
         stdio: "pipe",
         timeout: 5000,
       });
-      // If it succeeds, the platform package is installed locally (dev scenario)
+      // Platform package is installed locally (dev scenario) — assert a version was printed
+      assert.match(stdout.toString().trim(), /^\d+\.\d+\.\d+/, "version output should match semver");
     } catch (err) {
-      // Should get a clean exit, not a crash
+      // Should get a clean exit with code 1, not a crash with an unhandled exception
+      assert.strictEqual(err.status, 1, `expected exit code 1, got: ${err.status}`);
+      assert.strictEqual(err.signal, null, `expected no signal, got: ${err.signal}`);
       const stderr = err.stderr?.toString() || "";
       const stdout = err.stdout?.toString() || "";
       const output = stderr + stdout;
       assert.ok(
-        output.includes("not installed") || output.includes("not ship") || err.status === 1,
-        `should fail gracefully, got: ${output}`
+        output.includes("not installed") || output.includes("not ship"),
+        `should print helpful error message, got: ${output}`
       );
     }
   });

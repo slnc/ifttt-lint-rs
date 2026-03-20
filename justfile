@@ -71,8 +71,8 @@ test:
         exit 1
     fi
     out_node="$(node --test npm/test/resolve-binary.test.mjs 2>&1)" || { echo "$out_node"; exit 1; }
-    pass=$(echo "$out_node" | grep '^# pass' | cut -d' ' -f3)
-    fail=$(echo "$out_node" | grep '^# fail' | cut -d' ' -f3)
+    pass=$(echo "$out_node" | grep '^# pass' | cut -d' ' -f3 || true)
+    fail=$(echo "$out_node" | grep '^# fail' | cut -d' ' -f3 || true)
     echo "Node: ${pass:-0} passed; ${fail:-0} failed"
 
 test_coverage:

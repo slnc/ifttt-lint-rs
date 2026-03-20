@@ -40,8 +40,10 @@ if (!platformInfo) {
 const binName = process.platform === "win32" ? "ifchange.exe" : "ifchange";
 const builtBinPath = join(ROOT, "target", "release", binName);
 
-// We'll create a temporary node_modules structure so require.resolve works
-const tmpNodeModules = join(NPM_DIR, "node_modules");
+// We'll create a temporary node_modules structure so require.resolve works.
+// Use os.tmpdir() to avoid mutating the real npm/ project directory.
+const tmpRoot = join(os.tmpdir(), `ifchange-e2e-${process.pid}`);
+const tmpNodeModules = join(tmpRoot, "node_modules");
 const tmpScopedDir = join(tmpNodeModules, "@slnc", platformInfo.dir);
 
 describe("e2e binary resolution", () => {
@@ -63,9 +65,9 @@ describe("e2e binary resolution", () => {
   });
 
   after(() => {
-    // Clean up the temporary node_modules
-    if (existsSync(tmpNodeModules)) {
-      rmSync(tmpNodeModules, { recursive: true, force: true });
+    // Clean up the temporary directory
+    if (existsSync(tmpRoot)) {
+      rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
 
@@ -73,6 +75,7 @@ describe("e2e binary resolution", () => {
     const result = spawnSync("node", [join(NPM_DIR, "bin", "ifchange"), "--version"], {
       stdio: "pipe",
       timeout: 10_000,
+      env: { ...process.env, NODE_PATH: tmpNodeModules },
     });
 
     const stdout = result.stdout?.toString().trim() || "";
@@ -88,6 +91,7 @@ describe("e2e binary resolution", () => {
       timeout: 10_000,
       env: {
         ...process.env,
+        NODE_PATH: tmpNodeModules,
         IFCHANGE_BINARY: builtBinPath,
       },
     });
@@ -103,6 +107,7 @@ describe("e2e binary resolution", () => {
     const result = spawnSync("node", [join(NPM_DIR, "bin", "ifchange"), "--help"], {
       stdio: "pipe",
       timeout: 10_000,
+      env: { ...process.env, NODE_PATH: tmpNodeModules },
     });
 
     const stdout = result.stdout?.toString() || "";

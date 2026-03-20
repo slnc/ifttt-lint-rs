@@ -422,7 +422,15 @@ jobs:
           done
 
       - name: Publish main package
-        run: npm publish ./npm --access public --provenance
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          PKG_NAME="$(node -p "require('./npm/package.json').name")"
+          if npm view "${PKG_NAME}@${VERSION}" version >/dev/null 2>&1; then
+            echo "${PKG_NAME}@${VERSION} already published, skipping"
+          else
+            npm publish ./npm --access public --provenance
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
