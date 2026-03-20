@@ -297,6 +297,8 @@ jobs:
   publish-npm:
     runs-on: ubuntu-latest
     needs: [resolve-tag, build, publish]
+    permissions:
+      id-token: write
     env:
       RELEASE_TAG: ${{ needs.resolve-tag.outputs.tag }}
     steps:
@@ -378,7 +380,7 @@ jobs:
           for dir in npm/platforms/*/; do
             pkg="$(basename "$dir")"
             echo "Publishing $pkg..."
-            output="$(npm publish "$dir" --access public 2>&1)" && true
+            output="$(npm publish "$dir" --access public --provenance 2>&1)" && true
             status=$?
             echo "$output"
             if [ $status -ne 0 ]; then
@@ -420,7 +422,7 @@ jobs:
           done
 
       - name: Publish main package
-        run: npm publish ./npm --access public
+        run: npm publish ./npm --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
