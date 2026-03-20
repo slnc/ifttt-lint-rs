@@ -320,10 +320,25 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
+      - name: Set version and generate platform manifests
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          cd npm
+          # Update optionalDependencies versions to match
+          node -e "
+            const pkg = require('./package.json');
+            for (const dep of Object.keys(pkg.optionalDependencies)) {
+              pkg.optionalDependencies[dep] = '${VERSION}';
+            }
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          cd ..
+          node npm/scripts/generate-platforms.mjs
+
       - name: Place binaries into platform packages
         run: |
           set -euo pipefail
-          VERSION="${RELEASE_TAG#v}"
 
           place_binary() {
             local target="$1" pkg_dir="$2" bin_name="$3" archive_ext="$4"
@@ -340,11 +355,6 @@ jobs:
             cp "$tmp/$bin_name" "$pkg_dir/$bin_name"
             chmod +x "$pkg_dir/$bin_name"
             rm -rf "$tmp"
-
-            # Set version in platform package.json
-            cd "$pkg_dir"
-            npm version "$VERSION" --no-git-tag-version --allow-same-version
-            cd -
           }
 
           place_binary x86_64-unknown-linux-gnu    npm/platforms/ifchange-linux-x64    ifchange     tar.gz
@@ -352,20 +362,6 @@ jobs:
           place_binary x86_64-apple-darwin          npm/platforms/ifchange-darwin-x64   ifchange     tar.gz
           place_binary aarch64-apple-darwin         npm/platforms/ifchange-darwin-arm64  ifchange     tar.gz
           place_binary x86_64-pc-windows-msvc       npm/platforms/ifchange-win32-x64    ifchange.exe zip
-
-      - name: Set version on main package
-        run: |
-          VERSION="${RELEASE_TAG#v}"
-          cd npm
-          # Update optionalDependencies versions to match
-          node -e "
-            const pkg = require('./package.json');
-            for (const dep of Object.keys(pkg.optionalDependencies)) {
-              pkg.optionalDependencies[dep] = '${VERSION}';
-            }
-            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       - name: Copy README into npm packages
         run: |
