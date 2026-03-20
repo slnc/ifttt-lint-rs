@@ -404,12 +404,12 @@ jobs:
           )
           for pkg in "${PACKAGES[@]}"; do
             echo "Waiting for $pkg@$VERSION..."
-            for i in $(seq 1 30); do
+            for i in $(seq 1 60); do
               if npm view "$pkg@$VERSION" version 2>/dev/null | grep -q "$VERSION"; then
                 echo "$pkg@$VERSION is available"
                 break
               fi
-              if [ "$i" = "30" ]; then
+              if [ "$i" = "60" ]; then
                 echo "::error::Timed out waiting for $pkg@$VERSION on registry"
                 exit 1
               fi

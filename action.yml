@@ -26,7 +26,7 @@ inputs:
 #   "README.md#action",
 #   "examples/README.md#action",
 #   "examples/workflows/ifchange.yml",
-#   ".github/workflows/test.yml",
+#   ".github/workflows/ci.yml",
 # ])
 
 runs:
@@ -47,14 +47,16 @@ runs:
       if: steps.check.outputs.found == 'false'
       id: platform
       shell: bash
+      env:
+        RUNNER_OS_ARCH: ${{ runner.os }}-${{ runner.arch }}
       run: |
-        case "${{ runner.os }}-${{ runner.arch }}" in
+        case "$RUNNER_OS_ARCH" in
           Linux-X64)   target="x86_64-unknown-linux-gnu" ; ext="tar.gz" ;;
           Linux-ARM64)  target="aarch64-unknown-linux-gnu" ; ext="tar.gz" ;;
           macOS-ARM64)  target="aarch64-apple-darwin" ; ext="tar.gz" ;;
           macOS-X64)    target="x86_64-apple-darwin" ; ext="tar.gz" ;;
           Windows-X64)  target="x86_64-pc-windows-msvc" ; ext="zip" ;;
-          *) echo "::error::Unsupported platform: ${{ runner.os }}-${{ runner.arch }}" ; exit 1 ;;
+          *) echo "::error::Unsupported platform: $RUNNER_OS_ARCH" ; exit 1 ;;
         esac
         echo "target=$target" >> "$GITHUB_OUTPUT"
         echo "ext=$ext" >> "$GITHUB_OUTPUT"
@@ -81,19 +83,23 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.token }}
         ACTION_REPO: ${{ github.action_repository || github.repository }}
+        VERSION: ${{ steps.version.outputs.tag }}
+        TARGET: ${{ steps.platform.outputs.target }}
+        EXT: ${{ steps.platform.outputs.ext }}
+        RUNNER_TEMP: ${{ runner.temp }}
       run: |
         set -euo pipefail
-        version="${{ steps.version.outputs.tag }}"
-        target="${{ steps.platform.outputs.target }}"
-        ext="${{ steps.platform.outputs.ext }}"
+        version="$VERSION"
+        target="$TARGET"
+        ext="$EXT"
         archive="ifchange-${version}-${target}.${ext}"
 
         gh release download "$version" \
           --repo "$ACTION_REPO" \
           --pattern "$archive" \
-          --dir "${{ runner.temp }}"
+          --dir "$RUNNER_TEMP"
 
-        cd "${{ runner.temp }}"
+        cd "$RUNNER_TEMP"
         if [[ "$ext" == "tar.gz" ]]; then
           tar -xzf "$archive"
         else
@@ -108,15 +114,21 @@ runs:
       if: ${{ inputs.diff == '' }}
       id: diff
       shell: bash
+      env:
+        RUNNER_TEMP: ${{ runner.temp }}
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_REF: ${{ github.base_ref }}
+        EVENT_BEFORE: ${{ github.event.before }}
+        EVENT_SHA: ${{ github.sha }}
       run: |
         set -euo pipefail
-        diff_file="${{ runner.temp }}/changes.diff"
+        diff_file="${RUNNER_TEMP}/changes.diff"
 
-        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-          git fetch origin "${{ github.base_ref }}" --depth=1 2>/dev/null || true
-          git diff --merge-base "origin/${{ github.base_ref }}" HEAD > "$diff_file"
+        if [[ "$EVENT_NAME" == "pull_request" ]]; then
+          git fetch origin "$BASE_REF" --depth=1 2>/dev/null || true
+          git diff --merge-base "origin/$BASE_REF" HEAD > "$diff_file"
         else
-          git diff "${{ github.event.before }}" "${{ github.sha }}" > "$diff_file"
+          git diff "$EVENT_BEFORE" "$EVENT_SHA" > "$diff_file"
         fi
         echo "path=$diff_file" >> "$GITHUB_OUTPUT"
 
@@ -124,9 +136,10 @@ runs:
       shell: bash
       env:
         INPUT_ARGS: ${{ inputs.args }}
+        DIFF_FILE: ${{ inputs.diff || steps.diff.outputs.path }}
       run: |
         set -euo pipefail
-        diff_file="${{ inputs.diff || steps.diff.outputs.path }}"
+        diff_file="$DIFF_FILE"
         args=()
         if [[ -n "$INPUT_ARGS" ]]; then
           # Split on shell whitespace without evaluating metacharacters.
