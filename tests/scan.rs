@@ -379,10 +379,14 @@ fn scan_multiline_thenchange_no_brackets_valid() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "src.ts",
-            "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   \"a.ts\",\n//   \"b.ts\",\n// )\n",
-        )],
+        &[
+            (
+                "src.ts",
+                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   \"a.ts\",\n//   \"b.ts\",\n// )\n",
+            ),
+            ("a.ts", ""),
+            ("b.ts", ""),
+        ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
     assert_eq!(
@@ -425,10 +429,15 @@ fn scan_multiline_thenchange_no_brackets_multiple_pairs() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "multi.ts",
-            "// LINT.IfChange\nconst a = 1;\n// LINT.ThenChange(\n//   \"x.ts\",\n//   \"y.ts\",\n// )\n// LINT.IfChange\nconst b = 2;\n// LINT.ThenChange(\n//   \"z.ts\",\n// )\n",
-        )],
+        &[
+            (
+                "multi.ts",
+                "// LINT.IfChange\nconst a = 1;\n// LINT.ThenChange(\n//   \"x.ts\",\n//   \"y.ts\",\n// )\n// LINT.IfChange\nconst b = 2;\n// LINT.ThenChange(\n//   \"z.ts\",\n// )\n",
+            ),
+            ("x.ts", ""),
+            ("y.ts", ""),
+            ("z.ts", ""),
+        ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
     assert_eq!(
