@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774083712040,
+  "lastUpdate": 1774089242386,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -2111,6 +2111,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 58865037,
             "range": "± 416719",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69429+slnc@users.noreply.github.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "685adddea6dfb57cf6abbc1bf75a6fddd247aedb",
+          "message": "feat: validate ThenChange targets and support directory targets (#32)\n\n## Why\nThenChange target files were never validated during scan, so dangling\nreferences (after renames/deletes) went undetected. Additionally,\ndirectory targets like `ThenChange(lib/)` silently passed `.exists()`\nchecks but produced no useful enforcement.\n\n## What\n\n### Validate ThenChange targets exist during scan\n- Resolve each ThenChange target path and report an error if the file is\nmissing\n- Handle both relative and repo-root-absolute (`/`) target paths\n- Bare directories without trailing `/` produce an error with a\nsuggestion\n- Extract `validate_thenchange_targets` helper for clarity\n\n### Support ThenChange directory targets\n- Trailing slash convention (like `.gitignore`): `ThenChange(lib/)` =\ndirectory target\n- Lint mode: prefix-matches changed files against dir path (recursive)\n- Scan mode: validates directory exists, rejects bare dirs without `/`\n- Labels rejected for directory targets (`ThenChange(lib/#label)` is an\nerror)\n- Deleted directory targets error (consistent with deleted file targets)\n- Mixed targets supported: `ThenChange(lib/, config.py)`\n\n### Fix scan repo root resolution for remote `-s` paths\n- When `-s /abs/path` is used, discover repo root from the scan target\ninstead of the launcher CWD\n- Fixes absolute ThenChange targets resolving against the wrong repo\n\n### Other\n- Add pre-commit scenario test for deleted target files\n- Update README with directory target syntax and rules\n\n## Verify / Risk\n- [x] 306 tests pass (42 new)\n- [x] No performance regression (benchmarks unchanged)\n- [x] `cargo fmt` + `cargo clippy` clean\n- Low risk: scan validation is additive; directory targets are a new\nsyntax",
+          "timestamp": "2026-03-21T11:30:06+01:00",
+          "tree_id": "9ef65956d32977d32e88f1252cfafae899d38bd5",
+          "url": "https://github.com/slnc/ifchange/commit/685adddea6dfb57cf6abbc1bf75a6fddd247aedb"
+        },
+        "date": 1774089242076,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 4179369,
+            "range": "± 90327",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7573661,
+            "range": "± 322128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 37280261,
+            "range": "± 1692468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 57749469,
+            "range": "± 1310528",
             "unit": "ns/iter"
           }
         ]
