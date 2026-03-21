@@ -535,8 +535,7 @@ mod tests {
 
     #[rstest]
     fn case_insensitive_ifchange_bare(
-        #[values("lint.ifchange", "Lint.Ifchange", "LINT.IFCHANGE", "Lint.IfChange")]
-        variant: &str,
+        #[values("lint.ifchange", "Lint.Ifchange", "LINT.IFCHANGE", "Lint.IfChange")] variant: &str,
     ) {
         let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
         let directives = parse_directives_from_content(&content, "x.ts").unwrap();
@@ -547,7 +546,11 @@ mod tests {
 
     #[rstest]
     fn case_insensitive_ifchange_labeled(
-        #[values(r#"lint.ifchange("lbl")"#, r#"LINT.IFCHANGE("lbl")"#, r#"Lint.Ifchange("lbl")"#)]
+        #[values(
+            r#"lint.ifchange("lbl")"#,
+            r#"LINT.IFCHANGE("lbl")"#,
+            r#"Lint.Ifchange("lbl")"#
+        )]
         variant: &str,
     ) {
         let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
@@ -559,7 +562,11 @@ mod tests {
 
     #[rstest]
     fn case_insensitive_thenchange(
-        #[values(r#"lint.thenchange("b.ts")"#, r#"LINT.THENCHANGE("b.ts")"#, r#"Lint.ThenChange("b.ts")"#)]
+        #[values(
+            r#"lint.thenchange("b.ts")"#,
+            r#"LINT.THENCHANGE("b.ts")"#,
+            r#"Lint.ThenChange("b.ts")"#
+        )]
         variant: &str,
     ) {
         let content = format!("// LINT.IfChange\n// {variant}\n");
@@ -767,7 +774,7 @@ mod bug_tests {
             r#"LINT.LABEL("sec")"#,
             r#"Lint.Label("sec")"#,
             r#"lint.LaBeL("sec")"#,
-            r#"LINT.label("sec")"#,
+            r#"LINT.label("sec")"#
         )]
         variant: &str,
     ) {
@@ -803,7 +810,7 @@ mod bug_tests {
         #[values(
             "// some text LINT.IfChange\n",
             "// mentioning LINT.ThenChange(\"foo\")\n",
-            "// about LINT.Label(\"x\")\n",
+            "// about LINT.Label(\"x\")\n"
         )]
         input: &str,
     ) {
@@ -824,7 +831,13 @@ mod bug_tests {
 
     #[rstest]
     fn endlabel_case_insensitive_mixed(
-        #[values("lint.endlabel", "LINT.ENDLABEL", "Lint.EndLabel", "lint.EndLabel", "LINT.endlabel")]
+        #[values(
+            "lint.endlabel",
+            "LINT.ENDLABEL",
+            "Lint.EndLabel",
+            "lint.EndLabel",
+            "LINT.endlabel"
+        )]
         variant: &str,
     ) {
         let content = format!("// LINT.Label(\"sec\")\n// {variant}\n");

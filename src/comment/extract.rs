@@ -665,8 +665,14 @@ mod tests {
     fn c_style_new_extensions(
         #[values("v", "sv", "proto", "thrift", "jsonc", "mm", "scss", "less", "styl")] ext: &str,
     ) {
-        assert_eq!(extract_comments("// note\ncode\n", ext), vec![c(1, " note")]);
-        assert_eq!(extract_comments("/* block */\ncode\n", ext), vec![c(1, " block ")]);
+        assert_eq!(
+            extract_comments("// note\ncode\n", ext),
+            vec![c(1, " note")]
+        );
+        assert_eq!(
+            extract_comments("/* block */\ncode\n", ext),
+            vec![c(1, " block ")]
+        );
     }
 
     #[test]
@@ -732,23 +738,36 @@ mod tests {
 
     #[rstest]
     fn hash_style_new_extensions(
-        #[values("tf", "tfvars", "hcl", "cmake", "conf", "ini", "env", "dockerfile", "mk", "nix", "jl", "cr", "nim")]
+        #[values(
+            "tf",
+            "tfvars",
+            "hcl",
+            "cmake",
+            "conf",
+            "ini",
+            "env",
+            "dockerfile",
+            "mk",
+            "nix",
+            "jl",
+            "cr",
+            "nim"
+        )]
         ext: &str,
     ) {
         assert_eq!(extract_comments("# note\ncode\n", ext), vec![c(1, " note")]);
     }
 
     #[rstest]
-    fn dash_style_new_extensions(
-        #[values("hs", "ada", "adb", "ads", "vhdl", "vhd")] ext: &str,
-    ) {
-        assert_eq!(extract_comments("-- note\ncode\n", ext), vec![c(1, " note")]);
+    fn dash_style_new_extensions(#[values("hs", "ada", "adb", "ads", "vhdl", "vhd")] ext: &str) {
+        assert_eq!(
+            extract_comments("-- note\ncode\n", ext),
+            vec![c(1, " note")]
+        );
     }
 
     #[rstest]
-    fn semicolon_style_new_extensions(
-        #[values("rkt", "clj", "cljs", "cljc", "el")] ext: &str,
-    ) {
+    fn semicolon_style_new_extensions(#[values("rkt", "clj", "cljs", "cljc", "el")] ext: &str) {
         assert_eq!(extract_comments("; note\ncode\n", ext), vec![c(1, " note")]);
     }
 
