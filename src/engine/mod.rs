@@ -5,6 +5,7 @@ pub(crate) mod resolve;
 
 pub use lint::lint_diff;
 pub use resolve::find_repo_root;
+pub(crate) use resolve::{normalize_path_str, split_target_label};
 
 use std::collections::HashMap;
 
@@ -19,6 +20,7 @@ pub(super) struct Pair {
     pub(super) then_target_path: String,
     pub(super) then_target_label: Option<String>,
     pub(super) then_line: usize,
+    pub(super) is_dir_target: bool,
 }
 
 #[derive(Debug, Clone)]

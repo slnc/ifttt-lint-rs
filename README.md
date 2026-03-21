@@ -155,6 +155,32 @@ env:
 
 `/src/config.py` resolves to `<repo-root>/src/config.py`. Without the leading `/`, paths are relative to the source file's directory.
 
+### Directory targets
+
+A trailing `/` marks a directory target (like `.gitignore` conventions). `ThenChange(lib/)` means "if this block changes, at least one file anywhere under `lib/` must also change in the diff." Matching is recursive.
+
+```python
+# src/api.py
+# LINT.IfChange
+SCHEMA_VERSION = 3
+# LINT.ThenChange(generated/)
+```
+
+If `SCHEMA_VERSION` changes, at least one file under `generated/` (e.g. `generated/models.py`, `generated/sub/types.py`) must also appear in the diff.
+
+Rules:
+- `ThenChange(lib/)` (trailing slash) = directory target, recursive matching
+- `ThenChange(lib)` where `lib` is a directory = error with suggestion to add `/`
+- Labels are not supported for directory targets (`ThenChange(lib/#label)` is an error)
+- Directory must exist on disk during scan validation
+- If the directory was deleted (not on disk), lint reports an error (same as deleted file targets)
+
+Directory targets can be mixed with file targets:
+
+```python
+# LINT.ThenChange(generated/, docs/schema.md)
+```
+
 ### Self-references
 
 Point to a label in the same file with `#label` (no filename):

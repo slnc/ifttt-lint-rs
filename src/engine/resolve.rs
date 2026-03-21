@@ -35,7 +35,7 @@ pub fn find_repo_root(start: &Path) -> Option<std::path::PathBuf> {
     }
 }
 
-pub(super) fn split_target_label(target: &str) -> (&str, Option<&str>) {
+pub(crate) fn split_target_label(target: &str) -> (&str, Option<&str>) {
     if let Some(idx) = target.find('#') {
         (&target[..idx], Some(&target[idx + 1..]))
     } else {
@@ -60,8 +60,9 @@ pub(super) fn resolve_target_path(source_file: &str, target_name: &str) -> Strin
     normalize_path_str(&joined.to_string_lossy().replace('\\', "/"))
 }
 
-pub(super) fn normalize_path_str(path: &str) -> String {
+pub(crate) fn normalize_path_str(path: &str) -> String {
     let is_absolute = path.starts_with('/');
+    let has_trailing_slash = path.len() > 1 && path.ends_with('/');
     let mut parts: Vec<&str> = Vec::new();
     for component in path.split('/') {
         match component {
@@ -73,10 +74,15 @@ pub(super) fn normalize_path_str(path: &str) -> String {
         }
     }
     let joined = parts.join("/");
-    if is_absolute {
+    let result = if is_absolute {
         format!("/{}", joined)
     } else {
         joined
+    };
+    if has_trailing_slash && !result.is_empty() && !result.ends_with('/') {
+        format!("{}/", result)
+    } else {
+        result
     }
 }
 
@@ -90,6 +96,26 @@ pub(super) fn format_if_context(file: &str, label: Option<&str>, line: usize) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalize_path_preserves_trailing_slash() {
+        assert_eq!(normalize_path_str("src/dir/"), "src/dir/");
+    }
+
+    #[test]
+    fn normalize_path_preserves_trailing_slash_with_dotdot() {
+        assert_eq!(normalize_path_str("src/./dir/../other/"), "src/other/");
+    }
+
+    #[test]
+    fn resolve_target_path_directory_trailing_slash() {
+        assert_eq!(resolve_target_path("src/foo.rs", "lib/"), "src/lib/");
+    }
+
+    #[test]
+    fn resolve_target_path_absolute_directory_trailing_slash() {
+        assert_eq!(resolve_target_path("src/foo.rs", "/lib/"), "lib/");
+    }
 
     #[test]
     fn resolve_target_path_self() {

@@ -454,10 +454,13 @@ fn no_lint_with_scan_dir() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "ok.ts",
-            "// LINT.IfChange(\"a\")\n// LINT.ThenChange(\"b.ts\")\n",
-        )],
+        &[
+            (
+                "ok.ts",
+                "// LINT.IfChange(\"a\")\n// LINT.ThenChange(\"b.ts\")\n",
+            ),
+            ("b.ts", "target\n"),
+        ],
     );
     let output = Command::new(binary_path())
         .args(["--no-lint", "-s", &dir.path().to_string_lossy()])

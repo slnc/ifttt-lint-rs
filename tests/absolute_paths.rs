@@ -125,14 +125,27 @@ fn self_reference_absolute_path_with_label_unchanged() {
 #[test]
 fn scan_mode_accepts_mixed_absolute_and_relative() {
     let dir = TempDir::new().unwrap();
+    // Create .git so repo root points to this temp dir
+    std::fs::create_dir_all(dir.path().join(".git")).unwrap();
     write_files(
         dir.path(),
-        &[(
-            "a.py",
-            "# LINT.IfChange(\"rel\")\nA = 1\n# LINT.ThenChange(\"../b.py\")\n# LINT.IfChange(\"abs\")\nB = 1\n# LINT.ThenChange(/src/b.py)\n",
-        )],
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange(\"rel\")\nA = 1\n# LINT.ThenChange(\"b.py\")\n# LINT.IfChange(\"abs\")\nB = 1\n# LINT.ThenChange(/src/b.py)\n",
+            ),
+            ("b.py", "target\n"),
+            ("src/b.py", "target\n"),
+        ],
     );
-    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    // Run from the temp dir so repo root detection works
+    let output = std::process::Command::new(binary_path())
+        .args(["--no-lint", "-v", "-s", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let code = output.status.code().unwrap_or(-1);
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     assert_eq!(
         code, 0,
         "scan should accept both absolute and relative paths, stderr: {}",
@@ -141,6 +154,39 @@ fn scan_mode_accepts_mixed_absolute_and_relative() {
     assert!(
         stderr.contains("2 pairs"),
         "should detect 2 pairs, stderr: {}",
+        stderr
+    );
+}
+
+/// Regression: scanning a remote directory with -s /path should discover the
+/// repo root from that directory, not from the launcher's CWD.
+#[test]
+fn scan_remote_dir_resolves_repo_root_from_scan_target() {
+    let dir = TempDir::new().unwrap();
+    std::fs::create_dir_all(dir.path().join(".git")).unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nA = 1\n# LINT.ThenChange(/lib/b.py)\n",
+            ),
+            ("lib/b.py", "target\n"),
+        ],
+    );
+    // Run from a DIFFERENT directory (not the scanned repo), passing the
+    // scan target as an absolute path. The repo root should be discovered
+    // from the scan target, not from the launcher CWD.
+    let scan_path = dir.path().to_string_lossy().to_string();
+    let output = std::process::Command::new(binary_path())
+        .args(["--no-lint", "-s", &scan_path])
+        .output()
+        .unwrap();
+    let code = output.status.code().unwrap_or(-1);
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    assert_eq!(
+        code, 0,
+        "scan with -s /abs/path should resolve repo root from scan target, stderr: {}",
         stderr
     );
 }

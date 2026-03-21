@@ -97,10 +97,13 @@ fn scan_mode_lowercase_directives() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "lower.ts",
-            "// lint.ifchange(\"lbl\")\nconst v = 1;\n// lint.thenchange(\"other.ts\")\n",
-        )],
+        &[
+            (
+                "lower.ts",
+                "// lint.ifchange(\"lbl\")\nconst v = 1;\n// lint.thenchange(\"other.ts\")\n",
+            ),
+            ("other.ts", "target\n"),
+        ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
     assert_eq!(code, 0);
@@ -150,6 +153,10 @@ fn scan_mode_mixed_case_directives() {
                 "weird.go",
                 "// lInT.iFcHaNgE(\"d\")\ncode\n// LINT.thenchange(\"other.go\")\n",
             ),
+            ("other.ts", "target\n"),
+            ("other.py", "target\n"),
+            ("other.rs", "target\n"),
+            ("other.go", "target\n"),
         ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
@@ -198,10 +205,13 @@ fn scan_mode_mixed_case_pair_within_file() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "mixed_pair.ts",
-            "// lint.ifchange\ncode\n// LINT.THENCHANGE(\"other.ts\")\n",
-        )],
+        &[
+            (
+                "mixed_pair.ts",
+                "// lint.ifchange\ncode\n// LINT.THENCHANGE(\"other.ts\")\n",
+            ),
+            ("other.ts", "target\n"),
+        ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
     assert_eq!(
@@ -234,6 +244,7 @@ fn scan_prefilter_rejects_non_directive_lint_dot() {
                 "real.ts",
                 "// LINT.IfChange\ncode\n// LINT.ThenChange(\"other.ts\")\n",
             ),
+            ("other.ts", "target\n"),
         ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
@@ -246,14 +257,106 @@ fn scan_prefilter_rejects_non_directive_lint_dot() {
 }
 
 #[test]
-fn scan_verbose_shows_summary() {
+fn scan_detects_missing_target_file() {
+    // a.py references b.py which doesn't exist. Scan should report an error.
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
         &[(
-            "a.ts",
-            "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
+            "a.py",
+            "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"b.py\")\n",
         )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when target file doesn't exist, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("b.py"),
+        "error should mention the missing target, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_accepts_existing_target_file() {
+    // a.py references b.py which exists. Scan should pass.
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"b.py\")\n",
+            ),
+            ("b.py", "target content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 0,
+        "scan should pass when target file exists, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_detects_missing_labeled_target_file() {
+    // a.py references b.py#section which doesn't exist. Scan should report an error.
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "a.py",
+            "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"b.py#section\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when labeled target file doesn't exist, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("b.py"),
+        "error should mention the missing target, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_self_referencing_target_is_ok() {
+    // a.py references itself (same file). Should pass since the file exists.
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "a.py",
+            "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"a.py\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 0,
+        "self-referencing target should pass, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_verbose_shows_summary() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.ts",
+                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\"b.ts\")\n",
+            ),
+            ("b.ts", "target\n"),
+        ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
     assert_eq!(code, 0);
@@ -276,10 +379,14 @@ fn scan_multiline_thenchange_no_brackets_valid() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "src.ts",
-            "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   \"a.ts\",\n//   \"b.ts\",\n// )\n",
-        )],
+        &[
+            (
+                "src.ts",
+                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   \"a.ts\",\n//   \"b.ts\",\n// )\n",
+            ),
+            ("a.ts", ""),
+            ("b.ts", ""),
+        ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
     assert_eq!(
@@ -322,10 +429,15 @@ fn scan_multiline_thenchange_no_brackets_multiple_pairs() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "multi.ts",
-            "// LINT.IfChange\nconst a = 1;\n// LINT.ThenChange(\n//   \"x.ts\",\n//   \"y.ts\",\n// )\n// LINT.IfChange\nconst b = 2;\n// LINT.ThenChange(\n//   \"z.ts\",\n// )\n",
-        )],
+        &[
+            (
+                "multi.ts",
+                "// LINT.IfChange\nconst a = 1;\n// LINT.ThenChange(\n//   \"x.ts\",\n//   \"y.ts\",\n// )\n// LINT.IfChange\nconst b = 2;\n// LINT.ThenChange(\n//   \"z.ts\",\n// )\n",
+            ),
+            ("x.ts", ""),
+            ("y.ts", ""),
+            ("z.ts", ""),
+        ],
     );
     let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
     assert_eq!(
@@ -336,6 +448,104 @@ fn scan_multiline_thenchange_no_brackets_multiple_pairs() {
     assert!(
         stderr.contains("2 directive pairs"),
         "should detect 2 pairs, stderr: {}",
+        stderr
+    );
+}
+
+// ── Directory target scan tests ──
+
+#[test]
+fn scan_directory_target_exists() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"subdir/\")\n",
+            ),
+            ("subdir/file.py", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 0,
+        "scan should pass when directory target exists, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_directory_target_does_not_exist() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "a.py",
+            "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"missing_dir/\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when directory target doesn't exist, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("missing_dir/"),
+        "error should mention the missing target, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_bare_directory_without_trailing_slash() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"subdir\")\n",
+            ),
+            ("subdir/file.py", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when target is a directory without trailing slash, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("is a directory") && stderr.contains("trailing '/'"),
+        "error should suggest adding trailing slash, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_directory_target_with_label_rejected() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"subdir/#label\")\n",
+            ),
+            ("subdir/file.py", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when directory target has a label, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("labels are not supported for directory targets"),
+        "error should mention labels not supported for dir targets, stderr: {}",
         stderr
     );
 }

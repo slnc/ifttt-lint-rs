@@ -127,7 +127,11 @@ pub fn lint_diff(
         error_count += 1;
     }
 
-    let target_files: HashSet<&str> = pairs.iter().map(|p| p.then_target_path.as_str()).collect();
+    let target_files: HashSet<&str> = pairs
+        .iter()
+        .filter(|p| !p.is_dir_target)
+        .map(|p| p.then_target_path.as_str())
+        .collect();
     let uncached_targets: Vec<&str> = target_files
         .iter()
         .filter(|path| !file_indices.contains_key(**path))
@@ -264,8 +268,39 @@ pub fn lint_diff(
             ));
         }
 
-        let target_cl = changed_lines_map.get(&p.then_target_path);
         let if_ctx = format_if_context(&p.file, p.if_label.as_deref(), p.if_line);
+
+        if p.is_dir_target {
+            if p.then_target_label.is_some() {
+                messages.push(format!(
+                    "error: {} -> {}: labels are not supported for directory targets",
+                    if_ctx, p.then_target
+                ));
+                error_count += 1;
+                continue;
+            }
+            let any_match = changed_lines_map
+                .keys()
+                .any(|k| k.starts_with(&p.then_target_path));
+            if !any_match {
+                let msg = if repo_root.join(&p.then_target_path).is_dir() {
+                    format!(
+                        "error: {} -> {}: no file in target directory changed",
+                        if_ctx, p.then_target
+                    )
+                } else {
+                    format!(
+                        "error: {} -> {}: target directory unchanged",
+                        if_ctx, p.then_target
+                    )
+                };
+                messages.push(msg);
+                error_count += 1;
+            }
+            continue;
+        }
+
+        let target_cl = changed_lines_map.get(&p.then_target_path);
 
         if target_cl.is_none() {
             if !repo_root.join(&p.then_target_path).exists() {
