@@ -283,13 +283,18 @@ pub fn lint_diff(
                 .keys()
                 .any(|k| k.starts_with(&p.then_target_path));
             if !any_match {
-                if !repo_root.join(&p.then_target_path).is_dir() {
-                    continue; // deleted dir, skip
-                }
-                messages.push(format!(
-                    "error: {} -> {}: no file in target directory changed",
-                    if_ctx, p.then_target
-                ));
+                let msg = if repo_root.join(&p.then_target_path).is_dir() {
+                    format!(
+                        "error: {} -> {}: no file in target directory changed",
+                        if_ctx, p.then_target
+                    )
+                } else {
+                    format!(
+                        "error: {} -> {}: target directory unchanged",
+                        if_ctx, p.then_target
+                    )
+                };
+                messages.push(msg);
                 error_count += 1;
             }
             continue;

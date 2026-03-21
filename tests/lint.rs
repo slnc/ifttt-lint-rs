@@ -1426,8 +1426,8 @@ fn dir_target_no_file_in_dir_changed() {
 }
 
 #[test]
-fn dir_target_deleted_directory_skipped() {
-    // Directory doesn't exist on disk (deleted). Should skip, no error.
+fn dir_target_deleted_directory_is_error() {
+    // Directory doesn't exist on disk (deleted). Should error, same as deleted files.
     let (code, _, stderr) = lint_case_repo(
         &[(
             "src.py",
@@ -1440,8 +1440,45 @@ fn dir_target_deleted_directory_skipped() {
         &["--no-scan"],
     );
     assert_eq!(
-        code, 0,
-        "deleted dir target should be skipped, stderr: {}",
+        code, 1,
+        "deleted dir target should error, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("target directory unchanged"),
+        "should mention directory unchanged, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_with_label_rejected_in_lint() {
+    // Labels are not supported for directory targets in lint mode.
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/#label\")\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"lib/#label\")",
+            ),
+            ("lib/utils.py", "@@ -1 +1 @@\n-x = 1\n+x = 2"),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 1,
+        "dir target with label should error in lint mode, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("labels are not supported for directory targets"),
+        "should reject labels on dir targets, stderr: {}",
         stderr
     );
 }

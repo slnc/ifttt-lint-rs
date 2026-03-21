@@ -173,7 +173,7 @@ Rules:
 - `ThenChange(lib)` where `lib` is a directory = error with suggestion to add `/`
 - Labels are not supported for directory targets (`ThenChange(lib/#label)` is an error)
 - Directory must exist on disk during scan validation
-- If the directory was deleted (not on disk), the lint check is skipped
+- If the directory was deleted (not on disk), lint reports an error (same as deleted file targets)
 
 Directory targets can be mixed with file targets:
 
