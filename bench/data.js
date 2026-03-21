@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774099896006,
+  "lastUpdate": 1774110067260,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -2255,6 +2255,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 62628898,
             "range": "± 348942",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69429+slnc@users.noreply.github.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0430ff258abc9762230705ea606c626d7036866d",
+          "message": "refactor: clean up tests + stop doing redundant CI runs (#37)\n\n## Why\nCI runs on push to main duplicate the PR checks, wasting resources.\n\n## What\n- Remove `push` trigger from `ci.yml` (PR-only now)\n- Extract benchmark publish and sonarqube main-branch scan into new\n`post-merge.yml`\n- Simplify `if` conditions now that push events are gone\n- Drop unnecessary permissions from PR benchmark job\n- Point release-please trigger to `Post-merge` workflow\n\n## Verify\n- [x] CI passes on this PR\n- [ ] After merge, `post-merge.yml` runs benchmark publish + sonarqube\n- [ ] After merge, release-please triggers from `Post-merge` workflow",
+          "timestamp": "2026-03-21T17:19:09+01:00",
+          "tree_id": "46702a928e537583f000213c133263e518857e72",
+          "url": "https://github.com/slnc/ifchange/commit/0430ff258abc9762230705ea606c626d7036866d"
+        },
+        "date": 1774110066955,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 4474825,
+            "range": "± 27549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7609050,
+            "range": "± 38229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 39184663,
+            "range": "± 1377763",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 60658555,
+            "range": "± 1103919",
             "unit": "ns/iter"
           }
         ]
