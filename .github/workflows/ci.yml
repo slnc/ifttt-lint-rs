@@ -179,9 +179,14 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@a7e592b24782184db1613493a5e65d2e12199f80 # cargo-audit
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tool: cargo-audit
+
+      - name: Audit
+        run: cargo audit
 
   coverage:
     name: Coverage
