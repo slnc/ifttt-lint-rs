@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774098951759,
+  "lastUpdate": 1774099896006,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -2207,6 +2207,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 37685623,
             "range": "± 1094225",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "264827662+slnc-renovate-ci[bot]@users.noreply.github.com",
+            "name": "slnc-renovate-ci[bot]",
+            "username": "slnc-renovate-ci[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9bc38783b8d50647084110d8b6eb09dbba1a0de2",
+          "message": "chore(main): release 0.3.0 (#35)\n\n## [0.3.0](https://github.com/slnc/ifchange/compare/v0.2.1...v0.3.0)\n(2026-03-21)\n\n\n### Features\n\n* add go.mod support ([#30](https://github.com/slnc/ifchange/issues/30))\n([8bcb8bf](https://github.com/slnc/ifchange/commit/8bcb8bf3e37be058dd861551a745712db3fc8c04))\n* support multi-line ThenChange\n([#31](https://github.com/slnc/ifchange/issues/31))\n([af149f5](https://github.com/slnc/ifchange/commit/af149f581ecce4cdf63263fe871789890cd3039e))\n* validate ThenChange targets and support directory targets\n([#32](https://github.com/slnc/ifchange/issues/32))\n([685addd](https://github.com/slnc/ifchange/commit/685adddea6dfb57cf6abbc1bf75a6fddd247aedb))\n\n\n### Bug Fixes\n\n* platform-specific npm packages for binary distribution\n([#33](https://github.com/slnc/ifchange/issues/33))\n([aac4af8](https://github.com/slnc/ifchange/commit/aac4af8efd377e72c638d98773a542b3299acc8a))\n* scan validates pairing, labels, and orphans\n([#36](https://github.com/slnc/ifchange/issues/36))\n([c28d832](https://github.com/slnc/ifchange/commit/c28d832556c19ff8d2ec3ef2da396210096b8e4c))\n\n---\nThis PR was generated with [Release\nPlease](https://github.com/googleapis/release-please). See\n[documentation](https://github.com/googleapis/release-please#release-please).\n\nCo-authored-by: slnc-renovate-ci[bot] <264827662+slnc-renovate-ci[bot]@users.noreply.github.com>",
+          "timestamp": "2026-03-21T14:28:08+01:00",
+          "tree_id": "16342c3f2c165cc43aca8d715a6dd40ab63c106e",
+          "url": "https://github.com/slnc/ifchange/commit/9bc38783b8d50647084110d8b6eb09dbba1a0de2"
+        },
+        "date": 1774099895139,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 4288129,
+            "range": "± 41636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7952407,
+            "range": "± 410322",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 41847883,
+            "range": "± 1723048",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 62628898,
+            "range": "± 348942",
             "unit": "ns/iter"
           }
         ]
