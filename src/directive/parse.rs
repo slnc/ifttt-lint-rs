@@ -397,7 +397,12 @@ fn parse_array_targets(inner: &str) -> Vec<String> {
     // Handles quoted, unquoted, and mixed lists uniformly.
     inner
         .split(',')
-        .map(|s| s.trim().trim_matches(|c| c == '\'' || c == '"').trim().to_string())
+        .map(|s| {
+            s.trim()
+                .trim_matches(|c| c == '\'' || c == '"')
+                .trim()
+                .to_string()
+        })
         .filter(|s| !s.is_empty())
         .collect()
 }
@@ -1075,7 +1080,12 @@ mod bug_tests {
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
         let targets = then_targets(directives);
         // Must include both targets, not just the quoted one
-        assert_eq!(targets.len(), 2, "should have 2 targets, got: {:?}", targets);
+        assert_eq!(
+            targets.len(),
+            2,
+            "should have 2 targets, got: {:?}",
+            targets
+        );
     }
 
     // Same bug in multi-line form
@@ -1089,6 +1099,11 @@ mod bug_tests {
 ";
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
         let targets = then_targets(directives);
-        assert_eq!(targets.len(), 2, "should have 2 targets, got: {:?}", targets);
+        assert_eq!(
+            targets.len(),
+            2,
+            "should have 2 targets, got: {:?}",
+            targets
+        );
     }
 }
