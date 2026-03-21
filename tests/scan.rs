@@ -268,3 +268,62 @@ fn scan_verbose_shows_summary() {
         stderr
     );
 }
+
+// ── Multi-line ThenChange without brackets (scan) ──
+
+#[test]
+fn scan_multiline_thenchange_no_brackets_valid() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "src.ts",
+            "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   \"a.ts\",\n//   \"b.ts\",\n// )\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(code, 0, "valid multi-line no-brackets should pass scan, stderr: {}", stderr);
+    assert!(
+        stderr.contains("1 directive pair"),
+        "should detect 1 pair, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_multiline_thenchange_no_brackets_unclosed_error() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "bad.ts",
+            "// LINT.ThenChange(\n//   \"a.ts\",\n//   \"b.ts\",\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(code, 1, "unclosed multi-line should fail scan, stderr: {}", stderr);
+    assert!(
+        stderr.contains("Malformed LINT.ThenChange"),
+        "stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_multiline_thenchange_no_brackets_multiple_pairs() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "multi.ts",
+            "// LINT.IfChange\nconst a = 1;\n// LINT.ThenChange(\n//   \"x.ts\",\n//   \"y.ts\",\n// )\n// LINT.IfChange\nconst b = 2;\n// LINT.ThenChange(\n//   \"z.ts\",\n// )\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(code, 0, "multiple pairs should pass scan, stderr: {}", stderr);
+    assert!(
+        stderr.contains("2 directive pairs"),
+        "should detect 2 pairs, stderr: {}",
+        stderr
+    );
+}
