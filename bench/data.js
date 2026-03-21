@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773667450068,
+  "lastUpdate": 1774079972341,
   "repoUrl": "https://github.com/slnc/ifchange",
   "entries": {
     "Benchmark": [
@@ -1967,6 +1967,54 @@ window.BENCHMARK_DATA = {
             "name": "scan_5000_files",
             "value": 58224789,
             "range": "± 481172",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69429+slnc@users.noreply.github.com",
+            "name": "slnc",
+            "username": "slnc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aac4af8efd377e72c638d98773a542b3299acc8a",
+          "message": "fix: platform-specific npm packages for binary distribution (#33)\n\n## Why\nThe `postinstall` script downloads binaries from GitHub releases at\n`yarn install` time. GitHub `ETIMEDOUT` on CI runners causes\nintermittent install failures that block entire CI pipelines.\n\n## What\n- Replace postinstall GitHub download with platform-specific npm\npackages (same pattern as biome/esbuild/swc)\n- 5 platform packages:\n`@slnc/ifchange-{linux-x64,linux-arm64,darwin-x64,darwin-arm64,win32-x64}`\n- Each declares `os`, `cpu`, `libc`, `files`, and `preferUnplugged`\nconstraints\n- Binaries come from the npm registry alongside all other packages (no\nseparate GitHub download)\n- Thin `bin/ifchange` resolver script with `IFCHANGE_BINARY` env\noverride\n- Release workflow: idempotent publish + registry propagation check\nbefore main package\n\n## Verify / Risk\n- [x] 55 Node.js tests pass (package consistency, resolver, signal\nhandling, e2e)\n- [x] Workflow YAML validated\n- [ ] First release will publish 5 new `@slnc/*` packages to npm\n\n## Other notes\n- Consumers on `^0.2.x` will get this on next install; resolver\ngracefully errors if platform package is missing\n- Yarn PnP: `preferUnplugged: true` ensures binary is extracted from zip\n- Partial publish recovery: idempotent publish step allows workflow\nre-runs",
+          "timestamp": "2026-03-21T08:54:34+01:00",
+          "tree_id": "b5a6ad5124eb0cd1273703edcc0e683593ddfcb2",
+          "url": "https://github.com/slnc/ifchange/commit/aac4af8efd377e72c638d98773a542b3299acc8a"
+        },
+        "date": 1774079972075,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lint_latency_16kloc_diff",
+            "value": 4266718,
+            "range": "± 45710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_1000_files",
+            "value": 7655310,
+            "range": "± 335470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lint_5000_files",
+            "value": 39982680,
+            "range": "± 1615777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scan_5000_files",
+            "value": 60310546,
+            "range": "± 1121857",
             "unit": "ns/iter"
           }
         ]
