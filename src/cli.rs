@@ -125,24 +125,32 @@ pub fn run(cli: Cli) -> i32 {
     let cwd = std::env::current_dir().ok();
     let repo_root = cwd.as_ref().and_then(|c| find_repo_root(c));
 
-    if verbose {
-        if let Some(ref root) = repo_root {
+    let root_display = if verbose {
+        repo_root.as_ref().map(|root| {
             if cwd.as_ref() == Some(root) {
-                eprintln!("{}", dim("repo root: ."));
+                ".".to_string()
             } else {
-                eprintln!("{}", dim(&format!("repo root: {}", root.display())));
+                root.display().to_string()
             }
-        }
-    }
+        })
+    } else {
+        None
+    };
 
     let root = repo_root
         .or(cwd)
         .unwrap_or_else(|| std::path::PathBuf::from("."));
 
-    run_inner(cli, verbose, debug, &root)
+    run_inner(cli, verbose, debug, &root, root_display.as_deref())
 }
 
-fn run_inner(cli: Cli, verbose: bool, debug: bool, repo_root: &std::path::Path) -> i32 {
+fn run_inner(
+    cli: Cli,
+    verbose: bool,
+    debug: bool,
+    repo_root: &std::path::Path,
+    root_display: Option<&str>,
+) -> i32 {
     if cli.jobs > 0 {
         rayon::ThreadPoolBuilder::new()
             .num_threads(cli.jobs)
@@ -156,7 +164,11 @@ fn run_inner(cli: Cli, verbose: bool, debug: bool, repo_root: &std::path::Path) 
         } else {
             rayon::current_num_threads()
         };
-        eprintln!("{}", dim(&format!("jobs: {}", n)));
+        if let Some(rd) = root_display {
+            eprintln!("{}", dim(&format!("root: {} | jobs: {}", rd, n)));
+        } else {
+            eprintln!("{}", dim(&format!("jobs: {}", n)));
+        }
         if debug {
             eprintln!();
         }
@@ -516,14 +528,12 @@ fn run_scan(dir: &str, verbose: bool, debug: bool, repo_root: &std::path::Path) 
     });
 
     let errors = errors.into_inner().unwrap();
-    let verbose_lines = verbose_lines.into_inner().unwrap();
+    let mut verbose_lines = verbose_lines.into_inner().unwrap();
+    verbose_lines.sort();
     let err_count = errors.len();
 
     if verbose {
         eprintln!();
-        if debug {
-            eprintln!();
-        }
         let files = file_count.load(Ordering::Relaxed);
         let pairs = directive_pair_count.load(Ordering::Relaxed);
         let labels = label_count.load(Ordering::Relaxed);
@@ -540,8 +550,13 @@ fn run_scan(dir: &str, verbose: bool, debug: bool, repo_root: &std::path::Path) 
             if labels == 1 { "label" } else { "labels" }
         ));
         let header = parts.join(", ");
-        for line in &verbose_lines {
-            eprintln!("{}", dim(line));
+
+        if !verbose_lines.is_empty() {
+            eprintln!("{}", dim("Files with directives:"));
+            for line in &verbose_lines {
+                eprintln!("{}", dim(line));
+            }
+            eprintln!();
         }
 
         if err_count > 0 {

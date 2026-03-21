@@ -127,8 +127,8 @@ fn verbose_shows_repo_root_dot_when_running_at_root() {
     assert_eq!(output.status.code().unwrap(), 0);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("repo root: ."),
-        "verbose should print repo root shorthand at root, stderr: {}",
+        stderr.contains("root: ."),
+        "verbose should print root shorthand at root, stderr: {}",
         stderr
     );
 }
@@ -152,8 +152,8 @@ fn verbose_shows_repo_root_path_when_running_in_subdir() {
     assert_eq!(output.status.code().unwrap(), 0);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains(&format!("repo root: {}", canon.display())),
-        "verbose should print absolute repo root from subdirectory, stderr: {}",
+        stderr.contains(&format!("root: {}", canon.display())),
+        "verbose should print absolute root from subdirectory, stderr: {}",
         stderr
     );
 }
@@ -171,8 +171,8 @@ fn verbose_with_no_repo_root_does_not_print_repo_root_line() {
     assert_eq!(output.status.code().unwrap(), 0);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        !stderr.contains("repo root:"),
-        "should not print repo root line outside a detected repository, stderr: {}",
+        !stderr.contains("root:"),
+        "should not print root line outside a detected repository, stderr: {}",
         stderr
     );
 }
