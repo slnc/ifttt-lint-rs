@@ -410,6 +410,7 @@ fn parse_array_targets(inner: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use std::fs;
     use tempfile::TempDir;
 
@@ -516,17 +517,14 @@ mod tests {
         assert!(err.to_string().contains("Malformed LINT.ThenChange"));
     }
 
-    #[test]
-    fn malformed_directive_errors() {
-        for (input, expected) in [
-            ("// LINT.IfChanges\n", "Malformed LINT.IfChange"),
-            ("// LINT.ThenChanges\n", "Malformed LINT.ThenChange"),
-            ("// LINT.Labels\n", "Malformed LINT.Label"),
-            ("// LINT.Label(\n", "Malformed LINT.Label"),
-        ] {
-            let err = parse_directives_from_content(input, "x.ts").unwrap_err();
-            assert!(err.to_string().contains(expected), "input: {input}");
-        }
+    #[rstest]
+    #[case("// LINT.IfChanges\n", "Malformed LINT.IfChange")]
+    #[case("// LINT.ThenChanges\n", "Malformed LINT.ThenChange")]
+    #[case("// LINT.Labels\n", "Malformed LINT.Label")]
+    #[case("// LINT.Label(\n", "Malformed LINT.Label")]
+    fn malformed_directive_errors(#[case] input: &str, #[case] expected: &str) {
+        let err = parse_directives_from_content(input, "x.ts").unwrap_err();
+        assert!(err.to_string().contains(expected));
     }
 
     #[test]
@@ -535,58 +533,45 @@ mod tests {
         assert!(err.to_string().contains("Unknown LINT directive"));
     }
 
-    #[test]
-    fn case_insensitive_ifchange_bare() {
-        for variant in [
-            "lint.ifchange",
-            "Lint.Ifchange",
-            "LINT.IFCHANGE",
-            "Lint.IfChange",
-        ] {
-            let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
-            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
-            assert!(
-                directives
-                    .iter()
-                    .any(|d| matches!(d, Directive::IfChange { label: None, .. })),
-                "failed for variant: {variant}"
-            );
-        }
+    #[rstest]
+    fn case_insensitive_ifchange_bare(
+        #[values("lint.ifchange", "Lint.Ifchange", "LINT.IFCHANGE", "Lint.IfChange")] variant: &str,
+    ) {
+        let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
+        let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+        assert!(directives
+            .iter()
+            .any(|d| matches!(d, Directive::IfChange { label: None, .. })));
     }
 
-    #[test]
-    fn case_insensitive_ifchange_labeled() {
-        for variant in [
+    #[rstest]
+    fn case_insensitive_ifchange_labeled(
+        #[values(
             r#"lint.ifchange("lbl")"#,
             r#"LINT.IFCHANGE("lbl")"#,
-            r#"Lint.Ifchange("lbl")"#,
-        ] {
-            let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
-            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
-            assert!(
-                directives
-                    .iter()
-                    .any(|d| matches!(d, Directive::IfChange { label: Some(l), .. } if l == "lbl")),
-                "failed for variant: {variant}"
-            );
-        }
+            r#"Lint.Ifchange("lbl")"#
+        )]
+        variant: &str,
+    ) {
+        let content = format!("// {variant}\n// LINT.ThenChange(\"b.ts\")\n");
+        let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+        assert!(directives
+            .iter()
+            .any(|d| matches!(d, Directive::IfChange { label: Some(l), .. } if l == "lbl")));
     }
 
-    #[test]
-    fn case_insensitive_thenchange() {
-        for variant in [
+    #[rstest]
+    fn case_insensitive_thenchange(
+        #[values(
             r#"lint.thenchange("b.ts")"#,
             r#"LINT.THENCHANGE("b.ts")"#,
-            r#"Lint.ThenChange("b.ts")"#,
-        ] {
-            let content = format!("// LINT.IfChange\n// {variant}\n");
-            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
-            assert_eq!(
-                then_targets(directives),
-                vec!["b.ts"],
-                "failed for variant: {variant}"
-            );
-        }
+            r#"Lint.ThenChange("b.ts")"#
+        )]
+        variant: &str,
+    ) {
+        let content = format!("// LINT.IfChange\n// {variant}\n");
+        let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+        assert_eq!(then_targets(directives), vec!["b.ts"]);
     }
 
     #[test]
@@ -651,19 +636,29 @@ mod tests {
         assert_eq!(then_targets(directives), vec!["x.ts"]);
     }
 
-    #[test]
-    fn thenchange_multiline_array_line_comments_slash() {
-        let content = "// LINT.IfChange\nconst x = 1;\n// LINT.ThenChange([\n//   \"a.ts\",\n//   \"b.ts\",\n// ])\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
-    }
-
-    #[test]
-    fn thenchange_multiline_array_line_comments_hash() {
-        let content =
-            "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange([\n#   \"a.py\",\n#   \"b.py\",\n# ])\n";
-        let directives = parse_directives_from_content(content, "x.yml").unwrap();
-        assert_eq!(then_targets(directives), vec!["a.py", "b.py"]);
+    #[rstest]
+    #[case(
+        "// LINT.IfChange\nconst x = 1;\n// LINT.ThenChange([\n//   \"a.ts\",\n//   \"b.ts\",\n// ])\n",
+        "x.ts",
+        vec!["a.ts", "b.ts"],
+    )]
+    #[case(
+        "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange([\n#   \"a.py\",\n#   \"b.py\",\n# ])\n",
+        "x.yml",
+        vec!["a.py", "b.py"],
+    )]
+    #[case(
+        "-- LINT.IfChange\n-- LINT.ThenChange([\n--   \"a.sql\",\n--   \"b.sql\",\n-- ])\n",
+        "x.sql",
+        vec!["a.sql", "b.sql"],
+    )]
+    fn thenchange_multiline_array_line_comments(
+        #[case] content: &str,
+        #[case] ext: &str,
+        #[case] expected: Vec<&str>,
+    ) {
+        let directives = parse_directives_from_content(content, ext).unwrap();
+        assert_eq!(then_targets(directives), expected);
     }
 
     #[test]
@@ -673,17 +668,19 @@ mod tests {
         assert_eq!(then_targets(directives), vec!["a.ts"]);
     }
 
-    #[test]
-    fn effective_extension_regular_files() {
-        assert_eq!(effective_extension("src/foo.rs"), "rs");
-        assert_eq!(effective_extension("foo.py"), "py");
-        assert_eq!(effective_extension("noext"), "noext");
+    #[rstest]
+    #[case("src/foo.rs", "rs")]
+    #[case("foo.py", "py")]
+    #[case("noext", "noext")]
+    fn effective_extension_regular_files(#[case] path: &str, #[case] expected: &str) {
+        assert_eq!(effective_extension(path), expected);
     }
 
-    #[test]
-    fn effective_extension_go_mod() {
-        assert_eq!(effective_extension("go.mod"), "go.mod");
-        assert_eq!(effective_extension("path/to/go.mod"), "go.mod");
+    #[rstest]
+    #[case("go.mod")]
+    #[case("path/to/go.mod")]
+    fn effective_extension_go_mod(#[case] path: &str) {
+        assert_eq!(effective_extension(path), "go.mod");
     }
 
     #[test]
@@ -693,14 +690,15 @@ mod tests {
         assert_eq!(then_targets(directives), vec!["other.go"]);
     }
 
-    #[test]
-    fn effective_extension_dockerfile_variants() {
-        assert_eq!(effective_extension("Dockerfile"), "dockerfile");
-        assert_eq!(effective_extension("Dockerfile.prod"), "dockerfile");
-        assert_eq!(effective_extension("path/to/Dockerfile"), "dockerfile");
-        assert_eq!(effective_extension("path/to/Dockerfile.dev"), "dockerfile");
-        assert_eq!(effective_extension("DOCKERFILE"), "dockerfile");
-        assert_eq!(effective_extension("dockerfile.staging"), "dockerfile");
+    #[rstest]
+    #[case("Dockerfile", "dockerfile")]
+    #[case("Dockerfile.prod", "dockerfile")]
+    #[case("path/to/Dockerfile", "dockerfile")]
+    #[case("path/to/Dockerfile.dev", "dockerfile")]
+    #[case("DOCKERFILE", "dockerfile")]
+    #[case("dockerfile.staging", "dockerfile")]
+    fn effective_extension_dockerfile_variants(#[case] path: &str, #[case] expected: &str) {
+        assert_eq!(effective_extension(path), expected);
     }
 
     #[test]
@@ -709,20 +707,12 @@ mod tests {
         let directives = parse_directives_from_content(content, "Dockerfile.prod").unwrap();
         assert_eq!(then_targets(directives), vec!["other.py"]);
     }
-
-    #[test]
-    fn thenchange_multiline_array_line_comments_dash() {
-        let content =
-            "-- LINT.IfChange\n-- LINT.ThenChange([\n--   \"a.sql\",\n--   \"b.sql\",\n-- ])\n";
-        let directives = parse_directives_from_content(content, "x.sql").unwrap();
-        assert_eq!(then_targets(directives), vec!["a.sql", "b.sql"]);
-    }
 }
 
-// Tests appended outside the existing mod tests block so we reopen it.
 #[cfg(test)]
 mod bug_tests {
     use super::*;
+    use rstest::rstest;
 
     fn then_targets(directives: Vec<Directive>) -> Vec<String> {
         directives
@@ -734,7 +724,6 @@ mod bug_tests {
             .collect()
     }
 
-    // BUG 5: Empty string "" in ThenChange array should be skipped, not misparsed.
     #[test]
     fn parse_array_targets_skips_empty_strings() {
         let targets = parse_array_targets(r#""a.py", "", "b.py""#);
@@ -748,7 +737,6 @@ mod bug_tests {
         assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
     }
 
-    // ThenChange("a.py", "b.py") without brackets should parse as two targets.
     #[test]
     fn thenchange_multiple_quoted_without_brackets() {
         let content = "// LINT.ThenChange(\"a.py\", \"b.py\")\n";
@@ -756,89 +744,45 @@ mod bug_tests {
         assert_eq!(then_targets(directives), vec!["a.py", "b.py"]);
     }
 
-    // ThenChange(/foo.txt, /bar.txt) unquoted comma-separated should parse as two targets.
-    #[test]
-    fn thenchange_unquoted_comma_separated() {
-        let content = "// LINT.ThenChange(/foo.txt, /bar.txt)\n";
+    #[rstest]
+    #[case("// LINT.ThenChange(/foo.txt, /bar.txt)\n", vec!["/foo.txt", "/bar.txt"])]
+    #[case("// LINT.ThenChange(foo.txt, bar.txt)\n", vec!["foo.txt", "bar.txt"])]
+    #[case("// LINT.ThenChange(/foo.txt#label1, /bar.txt#label2)\n", vec!["/foo.txt#label1", "/bar.txt#label2"])]
+    #[case("// LINT.ThenChange(  /foo.txt ,  /bar.txt  )\n", vec!["/foo.txt", "/bar.txt"])]
+    #[case("// LINT.ThenChange(foo.txt)\n", vec!["foo.txt"])]
+    #[case("// LINT.ThenChange(a.txt, b.txt, c.txt)\n", vec!["a.txt", "b.txt", "c.txt"])]
+    fn thenchange_unquoted_variants(#[case] content: &str, #[case] expected: Vec<&str>) {
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["/foo.txt", "/bar.txt"]);
+        assert_eq!(then_targets(directives), expected);
     }
 
-    #[test]
-    fn thenchange_unquoted_comma_separated_no_leading_slash() {
-        let content = "// LINT.ThenChange(foo.txt, bar.txt)\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["foo.txt", "bar.txt"]);
-    }
-
-    #[test]
-    fn thenchange_unquoted_comma_separated_with_labels() {
-        let content = "// LINT.ThenChange(/foo.txt#label1, /bar.txt#label2)\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(
-            then_targets(directives),
-            vec!["/foo.txt#label1", "/bar.txt#label2"]
-        );
-    }
-
-    #[test]
-    fn thenchange_unquoted_comma_separated_extra_whitespace() {
-        let content = "// LINT.ThenChange(  /foo.txt ,  /bar.txt  )\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["/foo.txt", "/bar.txt"]);
-    }
-
-    #[test]
-    fn thenchange_unquoted_single_target_no_quotes() {
-        let content = "// LINT.ThenChange(foo.txt)\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["foo.txt"]);
-    }
-
-    #[test]
-    fn thenchange_unquoted_three_targets() {
-        let content = "// LINT.ThenChange(a.txt, b.txt, c.txt)\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["a.txt", "b.txt", "c.txt"]);
-    }
-
-    // Unquoted label names should work
-    #[test]
-    fn label_unquoted() {
-        let content = "// LINT.Label(my_section)\n// LINT.EndLabel\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
+    #[rstest]
+    #[case("my_section")]
+    #[case("my-section-v2")]
+    fn label_unquoted(#[case] name: &str) {
+        let content = format!("// LINT.Label({name})\n// LINT.EndLabel\n");
+        let directives = parse_directives_from_content(&content, "x.ts").unwrap();
         assert!(directives
             .iter()
-            .any(|d| matches!(d, Directive::Label { name, .. } if name == "my_section")));
+            .any(|d| matches!(d, Directive::Label { name: n, .. } if n == name)));
     }
 
-    #[test]
-    fn label_unquoted_with_hyphens() {
-        let content = "// LINT.Label(my-section-v2)\n// LINT.EndLabel\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert!(directives
-            .iter()
-            .any(|d| matches!(d, Directive::Label { name, .. } if name == "my-section-v2")));
-    }
-
-    #[test]
-    fn label_case_insensitive_mixed() {
-        for variant in [
+    #[rstest]
+    fn label_case_insensitive_mixed(
+        #[values(
             r#"lint.label("sec")"#,
             r#"LINT.LABEL("sec")"#,
             r#"Lint.Label("sec")"#,
             r#"lint.LaBeL("sec")"#,
-            r#"LINT.label("sec")"#,
-        ] {
-            let content = format!("// {variant}\n// LINT.EndLabel\n");
-            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
-            assert!(
-                directives
-                    .iter()
-                    .any(|d| matches!(d, Directive::Label { name, .. } if name == "sec")),
-                "failed for variant: {variant}"
-            );
-        }
+            r#"LINT.label("sec")"#
+        )]
+        variant: &str,
+    ) {
+        let content = format!("// {variant}\n// LINT.EndLabel\n");
+        let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+        assert!(directives
+            .iter()
+            .any(|d| matches!(d, Directive::Label { name, .. } if name == "sec")));
     }
 
     #[test]
@@ -850,43 +794,32 @@ mod bug_tests {
             .any(|d| matches!(d, Directive::Label { name, .. } if name == "my_section")));
     }
 
-    #[test]
-    fn ifchange_unquoted_label() {
-        let content = "// LINT.IfChange(my-feature)\n// LINT.ThenChange(\"b.ts\")\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert!(directives
-            .iter()
-            .any(|d| matches!(d, Directive::IfChange { label: Some(l), .. } if l == "my-feature")));
+    #[rstest]
+    #[case("LINT.IfChange(my-feature)", "my-feature")]
+    #[case("lint.ifchange(my_feature)", "my_feature")]
+    fn ifchange_unquoted_label(#[case] directive: &str, #[case] expected_label: &str) {
+        let content = format!("// {directive}\n// LINT.ThenChange(\"b.ts\")\n");
+        let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+        assert!(directives.iter().any(
+            |d| matches!(d, Directive::IfChange { label: Some(l), .. } if l == expected_label)
+        ));
     }
 
-    #[test]
-    fn ifchange_unquoted_label_case_insensitive() {
-        let content = "// lint.ifchange(my_feature)\n// LINT.ThenChange(\"b.ts\")\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert!(directives
-            .iter()
-            .any(|d| matches!(d, Directive::IfChange { label: Some(l), .. } if l == "my_feature")));
-    }
-
-    #[test]
-    fn directive_mid_comment_ignored() {
-        // Directives that don't start the comment line should be ignored
-        for input in [
+    #[rstest]
+    fn directive_mid_comment_ignored(
+        #[values(
             "// some text LINT.IfChange\n",
             "// mentioning LINT.ThenChange(\"foo\")\n",
-            "// about LINT.Label(\"x\")\n",
-        ] {
-            let directives = parse_directives_from_content(input, "x.ts").unwrap();
-            assert!(
-                directives.is_empty(),
-                "expected empty for: {input}, got: {directives:?}"
-            );
-        }
+            "// about LINT.Label(\"x\")\n"
+        )]
+        input: &str,
+    ) {
+        let directives = parse_directives_from_content(input, "x.ts").unwrap();
+        assert!(directives.is_empty());
     }
 
     #[test]
     fn directive_with_leading_whitespace() {
-        // Leading whitespace before LINT. should still parse
         let content = "/*\n  LINT.IfChange\n  LINT.ThenChange(\"b.ts\")\n*/\n";
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
         assert_eq!(directives.len(), 2);
@@ -896,83 +829,49 @@ mod bug_tests {
         ));
     }
 
-    #[test]
-    fn endlabel_case_insensitive_mixed() {
-        for variant in [
+    #[rstest]
+    fn endlabel_case_insensitive_mixed(
+        #[values(
             "lint.endlabel",
             "LINT.ENDLABEL",
             "Lint.EndLabel",
             "lint.EndLabel",
-            "LINT.endlabel",
-        ] {
-            let content = format!("// LINT.Label(\"sec\")\n// {variant}\n");
-            let directives = parse_directives_from_content(&content, "x.ts").unwrap();
-            assert!(
-                directives
-                    .iter()
-                    .any(|d| matches!(d, Directive::EndLabel { .. })),
-                "failed for variant: {variant}"
-            );
-        }
+            "LINT.endlabel"
+        )]
+        variant: &str,
+    ) {
+        let content = format!("// LINT.Label(\"sec\")\n// {variant}\n");
+        let directives = parse_directives_from_content(&content, "x.ts").unwrap();
+        assert!(directives
+            .iter()
+            .any(|d| matches!(d, Directive::EndLabel { .. })));
     }
 
     // ── Multi-line ThenChange without brackets ──
 
-    #[test]
-    fn thenchange_multiline_no_brackets_double_quoted() {
-        let content = "\
-// LINT.ThenChange(
-//   \"a.ts\",
-//   \"b.ts\",
-// )
-";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
-    }
-
-    #[test]
-    fn thenchange_multiline_no_brackets_hash_comments() {
-        let content = "\
-# LINT.ThenChange(
-#   'a.py',
-#   'b.py',
-# )
-";
-        let directives = parse_directives_from_content(content, "x.yml").unwrap();
-        assert_eq!(then_targets(directives), vec!["a.py", "b.py"]);
-    }
-
-    #[test]
-    fn thenchange_multiline_no_brackets_dash_comments() {
-        let content = "\
--- LINT.ThenChange(
---   'a.sql',
---   'b.sql',
--- )
-";
-        let directives = parse_directives_from_content(content, "x.sql").unwrap();
-        assert_eq!(then_targets(directives), vec!["a.sql", "b.sql"]);
+    #[rstest]
+    #[case("// LINT.ThenChange(\n//   \"a.ts\",\n//   \"b.ts\",\n// )\n", "x.ts", vec!["a.ts", "b.ts"])]
+    #[case("# LINT.ThenChange(\n#   'a.py',\n#   'b.py',\n# )\n", "x.yml", vec!["a.py", "b.py"])]
+    #[case("-- LINT.ThenChange(\n--   'a.sql',\n--   'b.sql',\n-- )\n", "x.sql", vec!["a.sql", "b.sql"])]
+    fn thenchange_multiline_no_brackets_comment_styles(
+        #[case] content: &str,
+        #[case] ext: &str,
+        #[case] expected: Vec<&str>,
+    ) {
+        let directives = parse_directives_from_content(content, ext).unwrap();
+        assert_eq!(then_targets(directives), expected);
     }
 
     #[test]
     fn thenchange_multiline_no_brackets_close_on_last_target_line() {
-        let content = "\
-// LINT.ThenChange(
-//   'a.ts',
-//   'b.ts')
-";
+        let content = "// LINT.ThenChange(\n//   'a.ts',\n//   'b.ts')\n";
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
         assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
     }
 
     #[test]
     fn thenchange_multiline_no_brackets_no_trailing_comma() {
-        let content = "\
-// LINT.ThenChange(
-//   'a.ts',
-//   'b.ts'
-// )
-";
+        let content = "// LINT.ThenChange(\n//   'a.ts',\n//   'b.ts'\n// )\n";
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
         assert_eq!(then_targets(directives), vec!["a.ts", "b.ts"]);
     }
@@ -990,12 +889,7 @@ mod bug_tests {
 // )
 ";
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        // Verify all directives are found (no skipped IfChange)
-        assert_eq!(
-            directives.len(),
-            4,
-            "expected 2 IfChange + 2 ThenChange, got: {directives:?}"
-        );
+        assert_eq!(directives.len(), 4);
         assert!(matches!(&directives[0], Directive::IfChange { .. }));
         assert!(matches!(&directives[1], Directive::ThenChange { target, .. } if target == "a.ts"));
         assert!(matches!(&directives[2], Directive::IfChange { .. }));
@@ -1011,99 +905,41 @@ mod bug_tests {
 
     #[test]
     fn thenchange_multiline_no_brackets_unclosed_errors() {
-        let content = "\
-// LINT.ThenChange(
-//   'a.ts',
-//   'b.ts',
-";
+        let content = "// LINT.ThenChange(\n//   'a.ts',\n//   'b.ts',\n";
+        let err = parse_directives_from_content(content, "x.ts").unwrap_err();
+        assert!(err.to_string().contains("Malformed LINT.ThenChange"));
+    }
+
+    #[rstest]
+    #[case("// LINT.ThenChange(\n//   foo.txt\n// )\n", "x.ts")]
+    #[case("/*\nLINT.ThenChange(\nfoo.txt\n)\n*/\n", "x.ts")]
+    fn thenchange_multiline_no_brackets_unquoted_single_target(
+        #[case] content: &str,
+        #[case] ext: &str,
+    ) {
+        let directives = parse_directives_from_content(content, ext).unwrap();
+        assert_eq!(then_targets(directives), vec!["foo.txt"]);
+    }
+
+    #[test]
+    fn thenchange_multiline_non_adjacent_comments_not_consumed() {
+        let content = "// LINT.ThenChange(\n\n// )\n";
         let err = parse_directives_from_content(content, "x.ts").unwrap_err();
         assert!(err.to_string().contains("Malformed LINT.ThenChange"));
     }
 
     #[test]
-    fn thenchange_multiline_no_brackets_unquoted_single_target() {
-        // Bug: multi-line ThenChange(\nfoo.txt\n) with unquoted single target should work
-        let content = "\
-// LINT.ThenChange(
-//   foo.txt
-// )
-";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["foo.txt"]);
-    }
-
-    #[test]
-    fn thenchange_multiline_no_brackets_unquoted_single_target_block_comment() {
-        let content = "/*\nLINT.ThenChange(\nfoo.txt\n)\n*/\n";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        assert_eq!(then_targets(directives), vec!["foo.txt"]);
-    }
-
-    // Bug: non-adjacent comments should NOT be consumed by multi-line ThenChange scan.
-    // A blank line or code between comment lines must stop the continuation.
-    #[test]
-    fn thenchange_multiline_non_adjacent_comments_not_consumed() {
-        // Line 1: // LINT.ThenChange(
-        // Line 2: (blank)
-        // Line 3: // )
-        // The blank line breaks adjacency, so the ThenChange( is unclosed.
-        let content = "// LINT.ThenChange(\n\n// )\n";
-        let err = parse_directives_from_content(content, "x.ts").unwrap_err();
-        assert!(
-            err.to_string().contains("Malformed LINT.ThenChange"),
-            "non-adjacent should be malformed, got: {}",
-            err
-        );
-    }
-
-    // Bug: non-adjacent comments with code in between should not be consumed.
-    #[test]
     fn thenchange_multiline_code_between_comments_not_consumed() {
-        // Line 1: // LINT.ThenChange(
-        // Line 2: const x = 1;
-        // Line 3: // "a.ts"
-        // Line 4: // )
         let content = "// LINT.ThenChange(\nconst x = 1;\n// \"a.ts\"\n// )\n";
         let err = parse_directives_from_content(content, "x.ts").unwrap_err();
-        assert!(
-            err.to_string().contains("Malformed LINT.ThenChange"),
-            "code gap should be malformed, got: {}",
-            err
-        );
+        assert!(err.to_string().contains("Malformed LINT.ThenChange"));
     }
 
-    // Bug: mixed quoted and unquoted targets silently drops the unquoted ones.
-    #[test]
-    fn thenchange_mixed_quoted_unquoted_is_malformed() {
-        // "a.ts" is quoted, b.ts is not. Should not silently drop b.ts.
-        let content = "// LINT.ThenChange(\"a.ts\", b.ts)\n";
+    #[rstest]
+    #[case("// LINT.ThenChange(\"a.ts\", b.ts)\n", vec!["a.ts", "b.ts"])]
+    #[case("// LINT.ThenChange(\n//   \"a.ts\",\n//   b.ts,\n// )\n", vec!["a.ts", "b.ts"])]
+    fn thenchange_mixed_quoted_unquoted(#[case] content: &str, #[case] expected: Vec<&str>) {
         let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        let targets = then_targets(directives);
-        // Must include both targets, not just the quoted one
-        assert_eq!(
-            targets.len(),
-            2,
-            "should have 2 targets, got: {:?}",
-            targets
-        );
-    }
-
-    // Same bug in multi-line form
-    #[test]
-    fn thenchange_multiline_mixed_quoted_unquoted_is_malformed() {
-        let content = "\
-// LINT.ThenChange(
-//   \"a.ts\",
-//   b.ts,
-// )
-";
-        let directives = parse_directives_from_content(content, "x.ts").unwrap();
-        let targets = then_targets(directives);
-        assert_eq!(
-            targets.len(),
-            2,
-            "should have 2 targets, got: {:?}",
-            targets
-        );
+        assert_eq!(then_targets(directives), expected);
     }
 }

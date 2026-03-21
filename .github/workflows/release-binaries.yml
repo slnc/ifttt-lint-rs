@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  repository_dispatch:
-    types: [release-created]
   workflow_dispatch:
 
 concurrency:
@@ -21,15 +19,9 @@ jobs:
       - name: Resolve tag name
         id: tag
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
-            TAG="$DISPATCH_TAG"
-          else
-            TAG="$REF_NAME"
-          fi
+          TAG="$REF_NAME"
           if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Could not resolve a valid release tag (got '$TAG')"
             exit 1
@@ -382,6 +374,9 @@ jobs:
             if [ $status -ne 0 ]; then
               if echo "$output" | grep -q "previously published\|cannot publish over"; then
                 echo "$pkg already published, skipping"
+              elif echo "$output" | grep -q "404 Not Found"; then
+                echo "$pkg not found on registry, retrying without --provenance..."
+                npm publish "$dir" --access public
               else
                 echo "::error::Failed to publish $pkg"
                 exit 1

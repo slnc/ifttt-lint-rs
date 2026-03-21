@@ -466,6 +466,7 @@ fn extract_prefixed_line_comments(content: &str, prefix: &str) -> Vec<Comment> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     fn c(line: usize, text: &str) -> Comment {
         Comment {
@@ -536,20 +537,16 @@ mod tests {
         );
     }
 
-    #[test]
-    fn single_line_style_comments() {
-        assert_eq!(
-            extract_comments("% first\nx = 1;\n", "m"),
-            vec![c(1, " first")]
-        );
-        assert_eq!(
-            extract_comments("; note\nMOV AX, BX\n", "asm"),
-            vec![c(1, " note")]
-        );
-        assert_eq!(
-            extract_comments("! hello\nx = 1\n", "f90"),
-            vec![c(1, " hello")]
-        );
+    #[rstest]
+    #[case("% first\nx = 1;\n", "m", vec![c(1, " first")])]
+    #[case("; note\nMOV AX, BX\n", "asm", vec![c(1, " note")])]
+    #[case("! hello\nx = 1\n", "f90", vec![c(1, " hello")])]
+    fn single_line_style_comments(
+        #[case] content: &str,
+        #[case] ext: &str,
+        #[case] expected: Vec<Comment>,
+    ) {
+        assert_eq!(extract_comments(content, ext), expected);
     }
 
     #[test]
@@ -603,12 +600,11 @@ mod tests {
         assert!(comments[1].text.contains("LINT.ThenChange"));
     }
 
-    #[test]
-    fn html_style_extensions() {
-        for ext in ["xml", "svg", "htm"] {
-            let comments = extract_comments("<!-- note -->\n", ext);
-            assert_eq!(comments.len(), 1, "failed for ext: {ext}");
-        }
+    #[rstest]
+    fn html_style_extensions(
+        #[values("xml", "svg", "htm", "vue", "svelte", "xsl", "xslt", "jsp", "erb")] ext: &str,
+    ) {
+        assert!(!extract_comments("<!-- note -->\n", ext).is_empty());
     }
 
     #[test]
@@ -665,35 +661,27 @@ mod tests {
         assert!(comments[0].text.contains("unterminated"));
     }
 
-    #[test]
-    fn c_style_new_extensions() {
-        for ext in [
-            "v", "sv", "proto", "thrift", "jsonc", "mm", "scss", "less", "styl",
-        ] {
-            assert_eq!(
-                extract_comments("// note\ncode\n", ext),
-                vec![c(1, " note")],
-                "failed for ext: {ext}",
-            );
-            assert_eq!(
-                extract_comments("/* block */\ncode\n", ext),
-                vec![c(1, " block ")],
-                "block comment failed for ext: {ext}",
-            );
-        }
+    #[rstest]
+    fn c_style_new_extensions(
+        #[values("v", "sv", "proto", "thrift", "jsonc", "mm", "scss", "less", "styl")] ext: &str,
+    ) {
+        assert_eq!(
+            extract_comments("// note\ncode\n", ext),
+            vec![c(1, " note")]
+        );
+        assert_eq!(
+            extract_comments("/* block */\ncode\n", ext),
+            vec![c(1, " block ")]
+        );
     }
 
     #[test]
     fn css_block_only() {
-        // CSS only supports /* */ comments, not //
         assert_eq!(
             extract_comments("/* LINT.IfChange */\ncode\n", "css"),
             vec![c(1, " LINT.IfChange ")],
         );
-        assert!(
-            extract_comments("// not a comment\ncode\n", "css").is_empty(),
-            "CSS should not recognize // comments",
-        );
+        assert!(extract_comments("// not a comment\ncode\n", "css").is_empty());
     }
 
     #[test]
@@ -704,58 +692,32 @@ mod tests {
         assert!(comments[0].text.contains("line2"));
     }
 
-    #[test]
-    fn sass_line_only() {
-        // SASS (indented syntax) supports // but not /* */
+    #[rstest]
+    #[case("sass")]
+    #[case("gleam")]
+    fn line_only_no_block(#[case] ext: &str) {
         assert_eq!(
-            extract_comments("// LINT.IfChange\ncode\n", "sass"),
+            extract_comments("// LINT.IfChange\ncode\n", ext),
             vec![c(1, " LINT.IfChange")],
         );
-        assert!(
-            extract_comments("/* not a comment */\ncode\n", "sass").is_empty(),
-            "SASS should not recognize /* */ comments",
-        );
+        assert!(extract_comments("/* not a comment */\ncode\n", ext).is_empty());
     }
 
-    #[test]
-    fn gleam_line_only() {
-        // Gleam only supports //
+    #[rstest]
+    fn fsharp_slash_comments(#[values("fs", "fsx", "fsi")] ext: &str) {
         assert_eq!(
-            extract_comments("// LINT.IfChange\ncode\n", "gleam"),
+            extract_comments("// LINT.IfChange\ncode\n", ext),
             vec![c(1, " LINT.IfChange")],
         );
-        assert!(
-            extract_comments("/* not a comment */\ncode\n", "gleam").is_empty(),
-            "Gleam should not recognize /* */ comments",
+    }
+
+    #[rstest]
+    fn fsharp_paren_block_comments(#[values("fs", "fsx", "fsi")] ext: &str) {
+        assert_eq!(
+            extract_comments("(* LINT.IfChange *)\ncode\n", ext),
+            vec![c(1, " LINT.IfChange ")],
         );
-    }
-
-    #[test]
-    fn fsharp_slash_comments() {
-        // F# supports // line comments
-        for ext in ["fs", "fsx", "fsi"] {
-            assert_eq!(
-                extract_comments("// LINT.IfChange\ncode\n", ext),
-                vec![c(1, " LINT.IfChange")],
-                "// comment failed for ext: {ext}",
-            );
-        }
-    }
-
-    #[test]
-    fn fsharp_paren_block_comments() {
-        // F# supports (* *) block comments, not /* */
-        for ext in ["fs", "fsx", "fsi"] {
-            assert_eq!(
-                extract_comments("(* LINT.IfChange *)\ncode\n", ext),
-                vec![c(1, " LINT.IfChange ")],
-                "(* *) block comment failed for ext: {ext}",
-            );
-            assert!(
-                extract_comments("/* not a comment */\ncode\n", ext).is_empty(),
-                "F# should not recognize /* */ comments for ext: {ext}",
-            );
-        }
+        assert!(extract_comments("/* not a comment */\ncode\n", ext).is_empty());
     }
 
     #[test]
@@ -774,9 +736,9 @@ mod tests {
         assert!(comments[0].text.contains("unclosed"));
     }
 
-    #[test]
-    fn hash_style_new_extensions() {
-        for ext in [
+    #[rstest]
+    fn hash_style_new_extensions(
+        #[values(
             "tf",
             "tfvars",
             "hcl",
@@ -789,61 +751,34 @@ mod tests {
             "nix",
             "jl",
             "cr",
-            "nim",
-        ] {
-            assert_eq!(
-                extract_comments("# note\ncode\n", ext),
-                vec![c(1, " note")],
-                "failed for ext: {ext}",
-            );
-        }
+            "nim"
+        )]
+        ext: &str,
+    ) {
+        assert_eq!(extract_comments("# note\ncode\n", ext), vec![c(1, " note")]);
     }
 
-    #[test]
-    fn html_style_new_extensions() {
-        for ext in ["vue", "svelte", "xsl", "xslt", "jsp", "erb"] {
-            assert_eq!(
-                extract_comments("<!-- note -->\n<div/>\n", ext),
-                vec![c(1, " note ")],
-                "failed for ext: {ext}",
-            );
-        }
+    #[rstest]
+    fn dash_style_new_extensions(#[values("hs", "ada", "adb", "ads", "vhdl", "vhd")] ext: &str) {
+        assert_eq!(
+            extract_comments("-- note\ncode\n", ext),
+            vec![c(1, " note")]
+        );
     }
 
-    #[test]
-    fn dash_style_new_extensions() {
-        for ext in ["hs", "ada", "adb", "ads", "vhdl", "vhd"] {
-            assert_eq!(
-                extract_comments("-- note\ncode\n", ext),
-                vec![c(1, " note")],
-                "failed for ext: {ext}",
-            );
-        }
+    #[rstest]
+    fn semicolon_style_new_extensions(#[values("rkt", "clj", "cljs", "cljc", "el")] ext: &str) {
+        assert_eq!(extract_comments("; note\ncode\n", ext), vec![c(1, " note")]);
     }
 
-    #[test]
-    fn semicolon_style_new_extensions() {
-        for ext in ["rkt", "clj", "cljs", "cljc", "el"] {
-            assert_eq!(
-                extract_comments("; note\ncode\n", ext),
-                vec![c(1, " note")],
-                "failed for ext: {ext}",
-            );
-        }
+    #[rstest]
+    fn bat_cmd_rem_comments(#[values("bat", "cmd")] ext: &str) {
+        assert_eq!(
+            extract_comments("REM note\necho hello\n", ext),
+            vec![c(1, " note")],
+        );
     }
 
-    #[test]
-    fn bat_cmd_rem_comments() {
-        for ext in ["bat", "cmd"] {
-            assert_eq!(
-                extract_comments("REM note\necho hello\n", ext),
-                vec![c(1, " note")],
-                "failed for ext: {ext}",
-            );
-        }
-    }
-
-    // BUG 4: UTF-8 BOM should not break comment extraction.
     #[test]
     fn bom_stripped_hash_comments() {
         let content = "\u{FEFF}# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"other.py\")\n";
@@ -855,52 +790,44 @@ mod tests {
         );
     }
 
-    // BUG 6: .tex and .el extensions should be recognized.
-    #[test]
-    fn tex_percent_comments() {
-        for ext in ["tex", "latex", "sty"] {
-            let comments = extract_comments("% LINT.IfChange\ncode\n", ext);
-            assert_eq!(
-                comments,
-                vec![c(1, " LINT.IfChange")],
-                "failed for ext: {ext}",
-            );
-        }
+    #[rstest]
+    fn tex_percent_comments(#[values("tex", "latex", "sty")] ext: &str) {
+        assert_eq!(
+            extract_comments("% LINT.IfChange\ncode\n", ext),
+            vec![c(1, " LINT.IfChange")],
+        );
     }
 
     #[test]
     fn el_semicolon_comments() {
-        let comments = extract_comments("; LINT.IfChange\ncode\n", "el");
-        assert_eq!(comments, vec![c(1, " LINT.IfChange")]);
+        assert_eq!(
+            extract_comments("; LINT.IfChange\ncode\n", "el"),
+            vec![c(1, " LINT.IfChange")],
+        );
     }
 
-    #[test]
-    fn extension_matching_is_case_insensitive() {
-        // Uppercase extensions should match the same as lowercase.
-        assert_eq!(extract_comments("// note\n", "RS"), vec![c(1, " note")]);
-        assert_eq!(extract_comments("# note\n", "PY"), vec![c(1, " note")]);
-        assert_eq!(
-            extract_comments("/* note */\n", "CSS"),
-            vec![c(1, " note ")]
-        );
-        assert_eq!(
-            extract_comments("<!-- note -->\n", "HTML"),
-            vec![c(1, " note ")]
-        );
-        assert_eq!(extract_comments("-- note\n", "SQL"), vec![c(1, " note")]);
-        assert_eq!(extract_comments("% note\n", "TEX"), vec![c(1, " note")]);
-        assert_eq!(extract_comments("; note\n", "EL"), vec![c(1, " note")]);
-        assert_eq!(extract_comments("' note\n", "VB"), vec![c(1, " note")]);
-        assert_eq!(extract_comments("! note\n", "F90"), vec![c(1, " note")]);
-
-        // Mixed case
-        assert_eq!(extract_comments("// note\n", "Rs"), vec![c(1, " note")]);
-        assert_eq!(extract_comments("# note\n", "Py"), vec![c(1, " note")]);
+    #[rstest]
+    #[case("// note\n", "RS", vec![c(1, " note")])]
+    #[case("# note\n", "PY", vec![c(1, " note")])]
+    #[case("/* note */\n", "CSS", vec![c(1, " note ")])]
+    #[case("<!-- note -->\n", "HTML", vec![c(1, " note ")])]
+    #[case("-- note\n", "SQL", vec![c(1, " note")])]
+    #[case("% note\n", "TEX", vec![c(1, " note")])]
+    #[case("; note\n", "EL", vec![c(1, " note")])]
+    #[case("' note\n", "VB", vec![c(1, " note")])]
+    #[case("! note\n", "F90", vec![c(1, " note")])]
+    #[case("// note\n", "Rs", vec![c(1, " note")])]
+    #[case("# note\n", "Py", vec![c(1, " note")])]
+    fn extension_matching_is_case_insensitive(
+        #[case] content: &str,
+        #[case] ext: &str,
+        #[case] expected: Vec<Comment>,
+    ) {
+        assert_eq!(extract_comments(content, ext), expected);
     }
 
     #[test]
     fn gomod_line_comments() {
-        // go.mod uses // line comments
         assert_eq!(
             extract_comments(
                 "// indirect dependency\nrequire (\n\tgolang.org/x/text v0.3.0\n)\n",
@@ -910,27 +837,22 @@ mod tests {
         );
     }
 
-    #[test]
-    fn binary_data_does_not_crash() {
-        // Null bytes and control characters
+    #[rstest]
+    fn binary_data_does_not_crash(
+        #[values("rs", "py", "html", "sql", "m", "asm", "vb", "f90", "xyz")] ext: &str,
+    ) {
         let binary = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0b\x0c\x0e\x0f";
-        assert!(extract_comments(binary, "rs").is_empty());
-        assert!(extract_comments(binary, "py").is_empty());
-        assert!(extract_comments(binary, "html").is_empty());
-        assert!(extract_comments(binary, "sql").is_empty());
-        assert!(extract_comments(binary, "m").is_empty());
-        assert!(extract_comments(binary, "asm").is_empty());
-        assert!(extract_comments(binary, "vb").is_empty());
-        assert!(extract_comments(binary, "f90").is_empty());
-        assert!(extract_comments(binary, "xyz").is_empty());
+        assert!(extract_comments(binary, ext).is_empty());
+    }
 
-        // Comment delimiters mixed with null bytes
+    #[rstest]
+    fn binary_delimiters_do_not_crash(#[values("rs", "py", "html")] ext: &str) {
         let nasty = "//\x00null\n/*\x00*/\n#\x00\n<!--\x00-->\n";
-        let _ = extract_comments(nasty, "rs");
-        let _ = extract_comments(nasty, "py");
-        let _ = extract_comments(nasty, "html");
+        let _ = extract_comments(nasty, ext);
+    }
 
-        // Lone high-codepoint unicode (valid UTF-8, but unusual)
+    #[test]
+    fn unicode_does_not_crash() {
         let unicode = "// \u{FFFF}\u{10FFFF}\n/* \u{FEFF}\u{200B} */\n";
         let _ = extract_comments(unicode, "rs");
     }

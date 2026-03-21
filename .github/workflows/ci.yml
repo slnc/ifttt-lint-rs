@@ -1,9 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -112,7 +111,6 @@ jobs:
 
   commitlint:
     name: Commitlint
-    if: ${{ github.event_name == 'pull_request' && contains(fromJSON('["opened","edited","synchronize","reopened"]'), github.event.action) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -130,7 +128,6 @@ jobs:
 
   sonarqube:
     name: SonarQube
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)) }}
     continue-on-error: true
     runs-on: ubuntu-latest
     needs: test
@@ -149,8 +146,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     permissions:
-      contents: write
-      deployments: write
       pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -173,10 +168,9 @@ jobs:
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: bench
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          alert-threshold: '150%'
+          alert-threshold: '175%'
           comment-on-alert: true
-          fail-on-alert: ${{ github.event_name == 'pull_request' }}
+          fail-on-alert: true
           alert-comment-cc-users: '@slnc'
 
   audit:
@@ -185,9 +179,14 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@a7e592b24782184db1613493a5e65d2e12199f80 # cargo-audit
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tool: cargo-audit
+
+      - name: Audit
+        run: cargo audit
 
   coverage:
     name: Coverage

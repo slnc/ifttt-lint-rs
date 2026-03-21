@@ -96,6 +96,7 @@ pub(super) fn format_if_context(file: &str, label: Option<&str>, line: usize) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     #[test]
     fn normalize_path_preserves_trailing_slash() {
@@ -234,57 +235,22 @@ mod tests {
         assert_eq!(find_repo_root(&dir), None);
     }
 
-    #[test]
-    fn find_repo_root_finds_hg_dir() {
+    #[rstest]
+    #[case(".hg", true)]
+    #[case(".jj", true)]
+    #[case(".svn", true)]
+    #[case(".pijul", true)]
+    #[case(".fslckout", false)]
+    #[case("_FOSSIL_", false)]
+    fn find_repo_root_finds_scm_marker(#[case] marker: &str, #[case] is_dir: bool) {
         let tmp = tempfile::TempDir::new().unwrap();
-        let repo = tmp.path().join("hgrepo");
-        std::fs::create_dir_all(repo.join(".hg")).unwrap();
+        let repo = tmp.path().join("scmrepo");
         std::fs::create_dir_all(repo.join("src")).unwrap();
-        assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
-    }
-
-    #[test]
-    fn find_repo_root_finds_jj_dir() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let repo = tmp.path().join("jjrepo");
-        std::fs::create_dir_all(repo.join(".jj")).unwrap();
-        std::fs::create_dir_all(repo.join("src")).unwrap();
-        assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
-    }
-
-    #[test]
-    fn find_repo_root_finds_svn_dir() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let repo = tmp.path().join("svnrepo");
-        std::fs::create_dir_all(repo.join(".svn")).unwrap();
-        std::fs::create_dir_all(repo.join("src")).unwrap();
-        assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
-    }
-
-    #[test]
-    fn find_repo_root_finds_pijul_dir() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let repo = tmp.path().join("pijulrepo");
-        std::fs::create_dir_all(repo.join(".pijul")).unwrap();
-        std::fs::create_dir_all(repo.join("src")).unwrap();
-        assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
-    }
-
-    #[test]
-    fn find_repo_root_finds_fslckout_file() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let repo = tmp.path().join("fossilrepo");
-        std::fs::create_dir_all(repo.join("src")).unwrap();
-        std::fs::write(repo.join(".fslckout"), "checkout db").unwrap();
-        assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
-    }
-
-    #[test]
-    fn find_repo_root_finds_fossil_underscore_file() {
-        let tmp = tempfile::TempDir::new().unwrap();
-        let repo = tmp.path().join("fossilrepo2");
-        std::fs::create_dir_all(repo.join("src")).unwrap();
-        std::fs::write(repo.join("_FOSSIL_"), "checkout db").unwrap();
+        if is_dir {
+            std::fs::create_dir_all(repo.join(marker)).unwrap();
+        } else {
+            std::fs::write(repo.join(marker), "data").unwrap();
+        }
         assert_eq!(find_repo_root(&repo.join("src")), Some(repo.clone()));
     }
 
