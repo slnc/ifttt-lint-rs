@@ -45,7 +45,10 @@ pub fn parse_file_directives(file_path: &str) -> Result<Vec<Directive>, Directiv
 /// Handles `Dockerfile.variant` by returning `"dockerfile"` so that hash-style comments
 /// are used regardless of the suffix.
 fn effective_extension(file_path: &str) -> &str {
-    let filename = file_path.rsplit('/').next().unwrap_or(file_path);
+    let filename = std::path::Path::new(file_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(file_path);
     let filename_lower = filename.as_bytes();
     // "Dockerfile" or "Dockerfile.something"
     if filename_lower.len() >= 10
@@ -54,7 +57,11 @@ fn effective_extension(file_path: &str) -> &str {
     {
         return "dockerfile";
     }
-    file_path.rsplit('.').next().unwrap_or("")
+    // "go.mod" uses // line comments
+    if filename.eq_ignore_ascii_case("go.mod") {
+        return "go.mod";
+    }
+    filename.rsplit('.').next().unwrap_or("")
 }
 
 /// Parse LINT directives from content string (used by both file parsing and check mode).
@@ -633,6 +640,19 @@ mod tests {
         assert_eq!(effective_extension("src/foo.rs"), "rs");
         assert_eq!(effective_extension("foo.py"), "py");
         assert_eq!(effective_extension("noext"), "noext");
+    }
+
+    #[test]
+    fn effective_extension_go_mod() {
+        assert_eq!(effective_extension("go.mod"), "go.mod");
+        assert_eq!(effective_extension("path/to/go.mod"), "go.mod");
+    }
+
+    #[test]
+    fn go_mod_parses_slash_comments() {
+        let content = "// LINT.IfChange\nrequire foo v1.0.0\n// LINT.ThenChange(\"other.go\")\n";
+        let directives = parse_directives_from_content(content, "go.mod").unwrap();
+        assert_eq!(then_targets(directives), vec!["other.go"]);
     }
 
     #[test]

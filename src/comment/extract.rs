@@ -19,7 +19,7 @@ const C_STYLE_EXTS: &[&str] = &[
 const C_BLOCK_ONLY_EXTS: &[&str] = &["css"];
 
 /// Extensions that support only `//` line comments (no block comments).
-const C_LINE_ONLY_EXTS: &[&str] = &["sass", "gleam"];
+const C_LINE_ONLY_EXTS: &[&str] = &["sass", "gleam", "go.mod"];
 
 /// Extensions that support `//` line comments and `(* *)` block comments (F#).
 const SLASH_PAREN_BLOCK_EXTS: &[&str] = &["fs", "fsx", "fsi"];
@@ -896,6 +896,18 @@ mod tests {
         // Mixed case
         assert_eq!(extract_comments("// note\n", "Rs"), vec![c(1, " note")]);
         assert_eq!(extract_comments("# note\n", "Py"), vec![c(1, " note")]);
+    }
+
+    #[test]
+    fn gomod_line_comments() {
+        // go.mod uses // line comments
+        assert_eq!(
+            extract_comments(
+                "// indirect dependency\nrequire (\n\tgolang.org/x/text v0.3.0\n)\n",
+                "go.mod"
+            ),
+            vec![c(1, " indirect dependency")],
+        );
     }
 
     #[test]
