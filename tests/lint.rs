@@ -1339,3 +1339,204 @@ fn multiline_thenchange_no_brackets_with_label_targets() {
         stderr
     );
 }
+
+// ── Directory target lint tests ──
+
+#[test]
+fn dir_target_file_in_dir_changed() {
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/\")\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"lib/\")",
+            ),
+            ("lib/utils.py", "@@ -1 +1 @@\n-x = 1\n+x = 2"),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 0,
+        "dir target should pass when file in dir changed, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_nested_file_changed() {
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/\")\n",
+            ),
+            ("lib/sub/deep/file.py", "x = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"lib/\")",
+            ),
+            (
+                "lib/sub/deep/file.py",
+                "@@ -1 +1 @@\n-x = 1\n+x = 2",
+            ),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 0,
+        "dir target should pass when nested file changed, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_no_file_in_dir_changed() {
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/\")\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"lib/\")",
+        )],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 1,
+        "dir target should fail when no file in dir changed, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("no file in target directory changed"),
+        "should mention directory, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_deleted_directory_skipped() {
+    // Directory doesn't exist on disk (deleted). Should skip, no error.
+    let (code, _, stderr) = lint_case_repo(
+        &[(
+            "src.py",
+            "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"deleted_dir/\")\n",
+        )],
+        &[(
+            "src.py",
+            "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"deleted_dir/\")",
+        )],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 0,
+        "deleted dir target should be skipped, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_mixed_with_file_targets_all_changed() {
+    // ThenChange lists both a directory and a file target; both satisfied.
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/\", \"config.py\")\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+            ("config.py", "c = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"lib/\", \"config.py\")",
+            ),
+            ("lib/utils.py", "@@ -1 +1 @@\n-x = 1\n+x = 2"),
+            ("config.py", "@@ -1 +1 @@\n-c = 1\n+c = 2"),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 0,
+        "mixed dir + file targets should pass when all changed, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_mixed_with_file_targets_dir_unchanged() {
+    // ThenChange lists dir and file; dir has no changes.
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/\", \"config.py\")\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+            ("config.py", "c = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"lib/\", \"config.py\")",
+            ),
+            ("config.py", "@@ -1 +1 @@\n-c = 1\n+c = 2"),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 1,
+        "should fail when dir target has no changes, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("no file in target directory changed"),
+        "should mention directory, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_mixed_with_file_targets_file_unchanged() {
+    // ThenChange lists dir and file; file not changed.
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/\", \"config.py\")\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+            ("config.py", "c = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,3 +1,3 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\"lib/\", \"config.py\")",
+            ),
+            ("lib/utils.py", "@@ -1 +1 @@\n-x = 1\n+x = 2"),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 1,
+        "should fail when file target is unchanged, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("target file unchanged"),
+        "should mention file unchanged, stderr: {}",
+        stderr
+    );
+}

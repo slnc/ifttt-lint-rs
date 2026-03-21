@@ -312,7 +312,7 @@ fn validate_thenchange_targets(
     let mut errors = Vec::new();
     for d in directives {
         if let crate::model::Directive::ThenChange { line, target } = d {
-            let (target_name, _label) = split_target_label(target);
+            let (target_name, label) = split_target_label(target);
             if target_name.is_empty() {
                 continue; // self-reference
             }
@@ -322,7 +322,25 @@ fn validate_thenchange_targets(
             } else {
                 parent.join(target_name)
             };
-            if !resolved.exists() {
+            if target_name.ends_with('/') {
+                // Directory target
+                if label.is_some() {
+                    errors.push(format!(
+                        "error: {}:{}: labels are not supported for directory targets ('{}')",
+                        file_path, line, target_name
+                    ));
+                } else if !resolved.is_dir() {
+                    errors.push(format!(
+                        "error: {}:{}: ThenChange target '{}' does not exist",
+                        file_path, line, target_name
+                    ));
+                }
+            } else if resolved.is_dir() {
+                errors.push(format!(
+                    "error: {}:{}: ThenChange target '{}' is a directory; add trailing '/' if intentional",
+                    file_path, line, target_name
+                ));
+            } else if !resolved.exists() {
                 errors.push(format!(
                     "error: {}:{}: ThenChange target '{}' does not exist",
                     file_path, line, target_name

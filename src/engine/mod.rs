@@ -20,6 +20,7 @@ pub(super) struct Pair {
     pub(super) then_target_path: String,
     pub(super) then_target_label: Option<String>,
     pub(super) then_line: usize,
+    pub(super) is_dir_target: bool,
 }
 
 #[derive(Debug, Clone)]

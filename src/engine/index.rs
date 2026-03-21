@@ -203,6 +203,7 @@ fn build_pairs(file: &str, directives: &[Directive]) -> (Vec<Pair>, OrphanThen, 
                 if let Some((if_line, ref if_label)) = current_if {
                     let (target_name, target_label) = split_target_label(target);
                     let then_target_path = resolve_target_path(file, target_name);
+                    let is_dir_target = then_target_path.ends_with('/');
                     pairs.push(Pair {
                         file: file.to_string(),
                         if_line,
@@ -211,6 +212,7 @@ fn build_pairs(file: &str, directives: &[Directive]) -> (Vec<Pair>, OrphanThen, 
                         then_target_path,
                         then_target_label: target_label.map(str::to_string),
                         then_line: *line,
+                        is_dir_target,
                     });
                     saw_then = true;
                 } else {

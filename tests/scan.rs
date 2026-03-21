@@ -451,3 +451,101 @@ fn scan_multiline_thenchange_no_brackets_multiple_pairs() {
         stderr
     );
 }
+
+// ── Directory target scan tests ──
+
+#[test]
+fn scan_directory_target_exists() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"subdir/\")\n",
+            ),
+            ("subdir/file.py", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 0,
+        "scan should pass when directory target exists, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_directory_target_does_not_exist() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "a.py",
+            "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"missing_dir/\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when directory target doesn't exist, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("missing_dir/"),
+        "error should mention the missing target, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_bare_directory_without_trailing_slash() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"subdir\")\n",
+            ),
+            ("subdir/file.py", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when target is a directory without trailing slash, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("is a directory") && stderr.contains("trailing '/'"),
+        "error should suggest adding trailing slash, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_directory_target_with_label_rejected() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"subdir/#label\")\n",
+            ),
+            ("subdir/file.py", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when directory target has a label, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("labels are not supported for directory targets"),
+        "error should mention labels not supported for dir targets, stderr: {}",
+        stderr
+    );
+}
