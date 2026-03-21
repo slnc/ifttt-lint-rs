@@ -1,5 +1,65 @@
 use crate::model::Directive;
 
+/// Check that IfChange/ThenChange directives are properly paired within a file.
+///
+/// Detects:
+/// - Orphan ThenChange (no preceding IfChange)
+/// - Orphan IfChange (no following ThenChange)
+/// - Consecutive IfChange without intervening ThenChange
+///
+/// Note: multi-target ThenChange directives (e.g. `ThenChange("a.py", "b.py")`)
+/// are represented as multiple consecutive `Directive::ThenChange` entries sharing
+/// the same line number. All of them count as a single "closing" ThenChange.
+pub fn validate_directive_pairing(directives: &[Directive], file_path: &str) -> Vec<String> {
+    let mut errors = Vec::new();
+    let mut pending_if: Option<(usize, Option<&str>)> = None; // (line, label)
+    let mut last_then_line: Option<usize> = None;
+
+    for directive in directives {
+        match directive {
+            Directive::IfChange { line, label } => {
+                if let Some((prev_line, prev_label)) = pending_if {
+                    let label_ctx = match prev_label {
+                        Some(l) => format!(" after IfChange('{}')", l),
+                        None => " after IfChange".to_string(),
+                    };
+                    errors.push(format!(
+                        "error: {}:{}: missing ThenChange{}",
+                        file_path, prev_line, label_ctx
+                    ));
+                }
+                pending_if = Some((*line, label.as_deref()));
+                last_then_line = None;
+            }
+            Directive::ThenChange { line, .. } => {
+                // Multiple ThenChange on the same line = multi-target, part of same pair
+                if pending_if.is_none() && last_then_line != Some(*line) {
+                    errors.push(format!(
+                        "error: {}:{}: unexpected ThenChange without preceding IfChange",
+                        file_path, line
+                    ));
+                }
+                pending_if = None;
+                last_then_line = Some(*line);
+            }
+            _ => {}
+        }
+    }
+
+    if let Some((line, label)) = pending_if {
+        let label_ctx = match label {
+            Some(l) => format!(" after IfChange('{}')", l),
+            None => " after IfChange".to_string(),
+        };
+        errors.push(format!(
+            "error: {}:{}: missing ThenChange{}",
+            file_path, line, label_ctx
+        ));
+    }
+
+    errors
+}
+
 /// Check for duplicate labels across IfChange labels and Label names within a file.
 pub fn validate_directive_uniqueness(directives: &[Directive], file_path: &str) -> Vec<String> {
     use std::collections::HashSet;

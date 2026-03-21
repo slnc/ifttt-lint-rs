@@ -8,7 +8,9 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 use crate::diff::parse_changed_lines;
-use crate::directive::{parse_directives_from_content, validate_directive_uniqueness};
+use crate::directive::{
+    parse_directives_from_content, validate_directive_pairing, validate_directive_uniqueness,
+};
 use crate::engine::{find_repo_root, lint_diff, normalize_path_str, split_target_label};
 
 static COLOR_ENABLED: AtomicBool = AtomicBool::new(false);
@@ -324,9 +326,24 @@ fn validate_thenchange_targets(
     for d in directives {
         if let crate::model::Directive::ThenChange { line, target } = d {
             let (target_name, label) = split_target_label(target);
+
+            // Self-reference: validate label exists in own file
             if target_name.is_empty() {
-                continue; // self-reference
+                if let Some(label_name) = label {
+                    let has_label = directives.iter().any(|d| {
+                        matches!(d, crate::model::Directive::Label { name, .. } if name == label_name)
+                            || matches!(d, crate::model::Directive::IfChange { label: Some(l), .. } if l == label_name)
+                    });
+                    if !has_label {
+                        errors.push(format!(
+                            "error: {}:{}: self-reference label '{}' not found in file",
+                            file_path, line, label_name
+                        ));
+                    }
+                }
+                continue;
             }
+
             let resolved = if let Some(stripped) = target_name.strip_prefix('/') {
                 let normalized = normalize_path_str(stripped.trim_start_matches('/'));
                 repo_root.join(normalized)
@@ -356,6 +373,39 @@ fn validate_thenchange_targets(
                     "error: {}:{}: ThenChange target '{}' does not exist",
                     file_path, line, target_name
                 ));
+            } else if let Some(label_name) = label {
+                // File exists, check if the referenced label exists in target
+                let resolved_str = resolved.to_string_lossy();
+                if let Ok(target_directives) = parse_directives_from_content(
+                    &std::fs::read_to_string(&resolved).unwrap_or_default(),
+                    &resolved_str,
+                ) {
+                    let has_label = target_directives.iter().any(|d| {
+                        matches!(d, crate::model::Directive::Label { name, .. } if name == label_name)
+                            || matches!(d, crate::model::Directive::IfChange { label: Some(l), .. } if l == label_name)
+                    });
+                    if !has_label {
+                        let available: Vec<&str> = target_directives
+                            .iter()
+                            .filter_map(|d| match d {
+                                crate::model::Directive::Label { name, .. } => Some(name.as_str()),
+                                crate::model::Directive::IfChange { label: Some(l), .. } => {
+                                    Some(l.as_str())
+                                }
+                                _ => None,
+                            })
+                            .collect();
+                        let avail_str = if available.is_empty() {
+                            "none".to_string()
+                        } else {
+                            available.join(", ")
+                        };
+                        errors.push(format!(
+                            "error: {}:{}: label '{}' not found in '{}' (available: {})",
+                            file_path, line, label_name, target_name, avail_str
+                        ));
+                    }
+                }
             }
         }
     }
@@ -441,6 +491,12 @@ fn run_scan(dir: &str, verbose: bool, debug: bool, repo_root: &std::path::Path) 
                     for err in dup_errors {
                         errs.push(err);
                     }
+                }
+
+                let pairing_errors = validate_directive_pairing(&directives, &file_path);
+                if !pairing_errors.is_empty() {
+                    let mut errs = errors.lock().unwrap();
+                    errs.extend(pairing_errors);
                 }
 
                 let parent = path.parent().unwrap_or(std::path::Path::new("."));

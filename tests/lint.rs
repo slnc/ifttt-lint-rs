@@ -1577,3 +1577,89 @@ fn dir_target_mixed_with_file_targets_file_unchanged() {
         stderr
     );
 }
+
+#[test]
+fn dir_target_directive_only_change_no_trigger() {
+    // Changing ThenChange from a file target to a dir target (directive-only) should not trigger.
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"lib/\")\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+        ],
+        &[(
+            "src.py",
+            "@@ -1,3 +1,3 @@\n # LINT.IfChange\n VALUE = 1\n-# LINT.ThenChange(\"old-target.py\")\n+# LINT.ThenChange(\"lib/\")",
+        )],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 0,
+        "directive-only change to dir target should not trigger, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_in_multiline_thenchange_all_changed() {
+    // Multi-line ThenChange with a dir target and a file target, both satisfied.
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\n#   \"lib/\",\n#   \"config.py\",\n# )\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+            ("config.py", "c = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,6 +1,6 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\n #   \"lib/\",\n #   \"config.py\",\n # )",
+            ),
+            ("lib/utils.py", "@@ -1 +1 @@\n-x = 1\n+x = 2"),
+            ("config.py", "@@ -1 +1 @@\n-c = 1\n+c = 2"),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 0,
+        "multi-line ThenChange with dir target should pass when all changed, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn dir_target_in_multiline_thenchange_dir_unchanged() {
+    // Multi-line ThenChange with a dir target; dir has no changes.
+    let (code, _, stderr) = lint_case_repo(
+        &[
+            (
+                "src.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\n#   \"lib/\",\n#   \"config.py\",\n# )\n",
+            ),
+            ("lib/utils.py", "x = 1\n"),
+            ("config.py", "c = 1\n"),
+        ],
+        &[
+            (
+                "src.py",
+                "@@ -1,6 +1,6 @@\n # LINT.IfChange\n-VALUE = 1\n+VALUE = 2\n # LINT.ThenChange(\n #   \"lib/\",\n #   \"config.py\",\n # )",
+            ),
+            ("config.py", "@@ -1 +1 @@\n-c = 1\n+c = 2"),
+        ],
+        &["--no-scan"],
+    );
+    assert_eq!(
+        code, 1,
+        "multi-line ThenChange should fail when dir target unchanged, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("no file in target directory changed"),
+        "should mention directory, stderr: {}",
+        stderr
+    );
+}

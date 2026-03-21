@@ -99,7 +99,19 @@ fn phase2_parse_error_ignored_by_if_label_ignore() {
 
 #[test]
 fn verbose_output() {
-    let (code, _, stderr) = run_lint("", &["-v"]);
+    // Run with scan enabled to verify both summaries appear
+    let dir = TempDir::new().unwrap();
+    fs::create_dir_all(dir.path().join(".git")).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "").unwrap();
+    let output = Command::new(binary_path())
+        .args(["-v"])
+        .arg(tmp.path())
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let code = output.status.code().unwrap_or(-1);
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     assert_eq!(code, 0);
     assert!(
         stderr.contains("Scan summary:"),
@@ -296,7 +308,19 @@ fn verbose_jobs_uses_explicit_value() {
 
 #[test]
 fn debug_implies_verbose() {
-    let (code, _, stderr) = run_lint("", &["-d"]);
+    // Run with scan enabled to verify both summaries appear
+    let dir = TempDir::new().unwrap();
+    fs::create_dir_all(dir.path().join(".git")).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(tmp.path(), "").unwrap();
+    let output = Command::new(binary_path())
+        .args(["-d"])
+        .arg(tmp.path())
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let code = output.status.code().unwrap_or(-1);
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     assert_eq!(code, 0);
     assert!(
         stderr.contains("jobs:"),

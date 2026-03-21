@@ -24,10 +24,13 @@ fn scan_mode_unique_labels() {
     let dir = TempDir::new().unwrap();
     write_files(
         dir.path(),
-        &[(
-            "ok.ts",
-            "// LINT.IfChange(\"a\")\n// LINT.IfChange(\"b\")\n",
-        )],
+        &[
+            (
+                "ok.ts",
+                "// LINT.IfChange(\"a\")\n// LINT.ThenChange(\"other.ts\")\n// LINT.IfChange(\"b\")\n// LINT.ThenChange(\"other.ts\")\n",
+            ),
+            ("other.ts", "target\n"),
+        ],
     );
     let (code, _, _) = run_scan(dir.path(), &[]);
     assert_eq!(code, 0);
@@ -448,6 +451,300 @@ fn scan_multiline_thenchange_no_brackets_multiple_pairs() {
     assert!(
         stderr.contains("2 directive pairs"),
         "should detect 2 pairs, stderr: {}",
+        stderr
+    );
+}
+
+// ── Orphan / structural pairing tests (scan) ──
+
+#[test]
+fn scan_orphan_thenchange_no_preceding_ifchange() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            ("orphan.ts", "// LINT.ThenChange(\"other.ts\")\n"),
+            ("other.ts", "target\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should detect orphan ThenChange without IfChange, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_orphan_ifchange_no_thenchange() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[("orphan.ts", "// LINT.IfChange\nconst x = 1;\n")],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should detect orphan IfChange without ThenChange, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_double_ifchange_without_thenchange() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "double.ts",
+                "// LINT.IfChange(\"first\")\n// LINT.IfChange(\"second\")\nconst x = 1;\n// LINT.ThenChange(\"other.ts\")\n",
+            ),
+            ("other.ts", "target\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "scan should detect consecutive IfChange without ThenChange, stderr: {}",
+        stderr
+    );
+}
+
+// ── BOM handling in scan ──
+
+#[test]
+fn scan_bom_file_parses_correctly() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "bom.py",
+                "\u{FEFF}# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"other.py\")\n",
+            ),
+            ("other.py", "VALUE = 1\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint", "-v"]);
+    assert_eq!(
+        code, 0,
+        "BOM file should parse directives correctly in scan, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("1 directive pair"),
+        "should detect 1 pair in BOM file, stderr: {}",
+        stderr
+    );
+}
+
+// ── Files with spaces in paths (scan) ──
+
+#[test]
+fn scan_files_with_spaces_in_path() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "my dir/my file.py",
+                "# LINT.IfChange\nVALUE = 1\n# LINT.ThenChange(\"other file.py\")\n",
+            ),
+            ("my dir/other file.py", "VALUE = 1\n"),
+        ],
+    );
+    let scan_dir = dir.path().join("my dir");
+    let (code, _, stderr) = run_scan(&scan_dir, &["--no-lint", "-v"]);
+    assert_eq!(
+        code, 0,
+        "files with spaces should be scanned correctly, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("1 directive pair"),
+        "should detect 1 pair in spaced path, stderr: {}",
+        stderr
+    );
+}
+
+// ── Missing label in target file (scan) ──
+
+#[test]
+fn scan_missing_label_in_existing_target() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"b.py#missing\")\n",
+            ),
+            (
+                "b.py",
+                "# LINT.Label(\"present\")\nstuff\n# LINT.EndLabel\n",
+            ),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 1,
+        "scan should fail when referenced label doesn't exist in target, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("missing"),
+        "error should mention missing label, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_label_exists_in_target_passes() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"b.py#present\")\n",
+            ),
+            (
+                "b.py",
+                "# LINT.Label(\"present\")\nstuff\n# LINT.EndLabel\n",
+            ),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 0,
+        "scan should pass when referenced label exists in target, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_self_reference_label_exists_passes() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "a.py",
+            "# LINT.Label(\"section\")\nstuff\n# LINT.EndLabel\n# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"#section\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 0,
+        "self-reference to existing label should pass, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_self_reference_label_missing_fails() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "a.py",
+            "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"#nonexistent\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &[]);
+    assert_eq!(
+        code, 1,
+        "self-reference to missing label should fail, stderr: {}",
+        stderr
+    );
+}
+
+// ── Directory target with multi-line ThenChange ──
+
+#[test]
+fn scan_multiline_thenchange_with_dir_target() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "src.ts",
+                "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   \"lib/\",\n//   \"config.ts\",\n// )\n",
+            ),
+            ("lib/utils.ts", "content\n"),
+            ("config.ts", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 0,
+        "multi-line ThenChange with dir target should pass scan, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_multiline_thenchange_with_missing_dir_target() {
+    let dir = TempDir::new().unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "src.ts",
+            "// LINT.IfChange\nconst v = 1;\n// LINT.ThenChange(\n//   \"missing_dir/\",\n//   \"config.ts\",\n// )\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "multi-line ThenChange with missing dir target should fail, stderr: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("missing_dir/"),
+        "error should mention missing dir, stderr: {}",
+        stderr
+    );
+}
+
+// ── Absolute directory target in scan ──
+
+#[test]
+fn scan_absolute_dir_target() {
+    let dir = TempDir::new().unwrap();
+    std::fs::create_dir_all(dir.path().join(".git")).unwrap();
+    write_files(
+        dir.path(),
+        &[
+            (
+                "src/a.py",
+                "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"/lib/\")\n",
+            ),
+            ("lib/utils.py", "content\n"),
+        ],
+    );
+    let (code, _, stderr) = run_scan_in_repo(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 0,
+        "absolute dir target should resolve from repo root, stderr: {}",
+        stderr
+    );
+}
+
+#[test]
+fn scan_absolute_dir_target_missing() {
+    let dir = TempDir::new().unwrap();
+    std::fs::create_dir_all(dir.path().join(".git")).unwrap();
+    write_files(
+        dir.path(),
+        &[(
+            "src/a.py",
+            "# LINT.IfChange\nvalue = 1\n# LINT.ThenChange(\"/missing_lib/\")\n",
+        )],
+    );
+    let (code, _, stderr) = run_scan_in_repo(dir.path(), &["--no-lint"]);
+    assert_eq!(
+        code, 1,
+        "absolute dir target that doesn't exist should fail, stderr: {}",
         stderr
     );
 }

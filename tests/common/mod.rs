@@ -35,11 +35,9 @@ pub fn make_diff(dir: &Path, changes: &[(&str, &str)]) -> String {
 pub fn run_lint(diff: &str, args: &[&str]) -> (i32, String, String) {
     let tmp = tempfile::NamedTempFile::new().unwrap();
     fs::write(tmp.path(), diff).unwrap();
-    let output = Command::new(binary_path())
-        .args(args)
-        .arg(tmp.path())
-        .output()
-        .unwrap();
+    let mut cmd = Command::new(binary_path());
+    cmd.arg("--no-scan").args(args).arg(tmp.path());
+    let output = cmd.output().unwrap();
     let code = output.status.code().unwrap_or(-1);
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -48,6 +46,7 @@ pub fn run_lint(diff: &str, args: &[&str]) -> (i32, String, String) {
 
 pub fn run_lint_stdin(input: &str, args: &[&str]) -> (i32, String, String) {
     let mut child = Command::new(binary_path())
+        .arg("--no-scan")
         .args(args)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -131,6 +130,25 @@ pub fn run_scan(dir: &Path, args: &[&str]) -> (i32, String, String) {
     let output = Command::new(binary_path())
         .args(args)
         .args(["-s", &dir.to_string_lossy()])
+        .output()
+        .unwrap();
+    let code = output.status.code().unwrap_or(-1);
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    (code, stdout, stderr)
+}
+
+/// Run scan with CWD set to the given directory (for repo-root detection).
+/// The directory should have a `.git` dir for repo root detection to work.
+pub fn run_scan_in_repo(dir: &Path, args: &[&str]) -> (i32, String, String) {
+    let git_dir = dir.join(".git");
+    if !git_dir.exists() {
+        fs::create_dir_all(&git_dir).unwrap();
+    }
+    let output = Command::new(binary_path())
+        .args(args)
+        .args(["-s", &dir.to_string_lossy()])
+        .current_dir(dir)
         .output()
         .unwrap();
     let code = output.status.code().unwrap_or(-1);
