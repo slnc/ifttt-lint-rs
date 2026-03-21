@@ -1,4 +1,5 @@
 use clap::Parser;
+use ignore::overrides::OverrideBuilder;
 use ignore::WalkBuilder;
 use is_terminal::IsTerminal;
 use rayon::prelude::*;
@@ -413,7 +414,14 @@ fn run_scan(dir: &str, verbose: bool, debug: bool, repo_root: &std::path::Path) 
     let directive_pair_count = AtomicUsize::new(0);
     let label_count = AtomicUsize::new(0);
 
+    let overrides = OverrideBuilder::new(dir)
+        .add("!.git")
+        .expect("valid glob")
+        .build()
+        .expect("valid overrides");
     let entries: Vec<_> = WalkBuilder::new(dir)
+        .hidden(false)
+        .overrides(overrides)
         .build()
         .filter_map(|entry| entry.ok())
         .filter(|entry| entry.file_type().is_some_and(|ft| ft.is_file()))
